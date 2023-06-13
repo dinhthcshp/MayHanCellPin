@@ -91,8 +91,177 @@ void setup() {
   lcd.init();       //Khởi động màn hình. Bắt đầu cho phép Arduino sử dụng màn hình
   lcd.backlight();   //Bật đèn nền
 }
-
+void runx() {
+  digitalWrite(STEP_X, 0);
+  delayMicroseconds(600);
+  digitalWrite(STEP_X, 1);
+  delayMicroseconds(600);
+}
+void runy() {
+  digitalWrite(STEP_Y, 0);
+  delayMicroseconds(1000);
+  digitalWrite(STEP_Y, 1);
+  delayMicroseconds(1000);
+}
+void runz(){
+  digitalWrite(STEP_Z, 0);
+  delayMicroseconds(1000);
+  digitalWrite(STEP_Z, 1);
+  delayMicroseconds(1000);
+}
+void bao(){
+  digitalWrite(COI_PIN, 1);
+  delay(100);
+  digitalWrite(COI_PIN, 0);
+  delay(100);
+}
 void loop() {
-  // put your main code here, to run repeatedly:
-
+  while(1) {
+    while (digitalRead(S1_PIN) == 0) {
+      //AUTO
+      Serial.println("AUTO");
+      if (digitalRead(S2_PIN) == 0) {
+        Serial.println("X Axis");
+        digitalWrite(ENB_X, 1);
+        if (digitalRead(TRAI_PIN) == 1) {
+          digitalWrite(ENB_X, 0);
+          digitalWrite(DIR_X, 0);
+          while(digitalRead(TRAI_PIN) == 1) {
+            runx();
+            doc[0]++;
+          }
+        }
+        if (digitalRead(PHAI_PIN) == 0) {
+          if (digitalRead(KHOP_X) == 1) {
+            digitalWrite(ENB_X, 0);
+            digitalWrite(DIR_X, 1);
+            while(digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_X) == 1) {
+              runx();
+              doc[0]--;
+            }
+          }
+          else {
+            doc[0] = 0;
+            for(int i = 0; i < 3; i++) {
+              bao();
+            }
+          }
+        }
+        if (digitalRead(SET_PIN) == 0) {
+          EEPROM.write(0, doc[0]);
+          Serial.print("doc x: ");
+          Serial.println(EEPROM.read(0));
+          bao();
+        }
+      }
+      else {
+        Serial.println("Z Axis");
+        if (digitalRead(TRAI_PIN) == 1) {
+          digitalWrite(ENB_Z, 0);
+          digitalWrite(ENB_Y, 0);
+          digitalWrite(DIR_Z, 0);
+          digitalWrite(DIR_Y, 0);
+          while(digitalRead(TRAI_PIN) == 1) {
+            runz();
+            doc[1]++;
+          }
+        }
+        if (digitalRead(PHAI_PIN) == 0) {
+          Serial.println("Z Len");
+          if ( digitalRead(KHOP_Z) == 1) {
+            digitalWrite(ENB_Z, 0);
+            digitalWrite(ENB_Y, 0);
+            digitalWrite(DIR_Z, 1);
+            digitalWrite(DIR_Y, 1);
+            while(digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_Z) == 1) {
+              runz();
+              doc[1]--;
+            }
+          }
+          else {
+            doc[1] = 0;
+            digitalWrite(ENB_Z, 0);
+            for(int i = 0; i < 3; i++) {
+              bao();
+            }
+          }
+        }
+        if (digitalRead(SET_PIN) == 0) {
+          EEPROM.write(1, doc[1]);
+          Serial.print("doc z: ");
+          Serial.println(EEPROM.read(1));
+          bao();
+        }
+      }
+    }// AUTO
+    while (digitalRead(S1_PIN) == 1) {
+      Serial.println("MAN");
+      bool ready = 1;
+      // while (ready == 0 & digitalRead(S1_PIN) == 1) {
+      //   int check = 0;
+      //   digitalWrite(ENB_X, 1);
+      //   digitalWrite(ENB_Y, 1);
+      //   if(digitalRead(KHOP_X) == 1) {
+      //     digitalWrite(ENB_X, 0);
+      //     digitalWrite(DIR_X, 1);
+      //     while(digitalRead(KHOP_X) == 1) {
+      //       runx();
+      //     }
+      //   } else check++;
+      //   if(digitalRead(KHOP_Y) == 1) {
+      //     digitalWrite(ENB_Y, 0);
+      //     digitalWrite(DIR_Y, 1);
+      //     while(digitalRead(KHOP_Y) == 1) {
+      //       runy();
+      //     }
+      //   } else check++;
+      //   if(digitalRead(KHOP_Z) == 1) {
+      //     digitalWrite(ENB_Z, 0);
+      //     digitalWrite(DIR_Z, 1);
+      //     while(digitalRead(KHOP_Z) == 1) {
+      //       runz();
+      //     }
+      //   } else check++;
+      //   if (check == 3) ready = 1;
+      // }
+      while (ready == 1 & digitalRead(S1_PIN) == 1) {
+        int qt = 0;
+        digitalWrite(ENB_Z, 0);
+        if(digitalRead(START_PIN) == 0){
+          qt = 1;
+        }
+        Serial.print("QT = ");
+        Serial.println(qt);
+        while (qt == 1 & digitalRead(S1_PIN) == 1) {
+          if (digitalRead(START_PIN) == 0) {
+            digitalWrite(DIR_Z, 0);
+            while(digitalRead(CTHT_HAN_PIN) == 1 & digitalRead(START_PIN) == 0) runz();
+          }
+          if (digitalRead(CTHT_HAN_PIN) == 0) qt = 2;
+          Serial.print("QT = ");
+          Serial.println(qt);
+        }
+        while(qt == 2) {
+          Serial.print("QT = ");
+          Serial.println(qt);
+          if (digitalRead(SET_PIN) == 0) {
+            digitalWrite(HAN_PIN, 1);
+            delay(50);
+            digitalWrite(HAN_PIN, 0);
+            bao();
+            qt = 3;
+          }
+        }
+        while(qt == 3) {
+          Serial.print("QT = ");
+          Serial.println(qt);
+          digitalWrite(DIR_Z, 1);
+          while(digitalRead(KHOP_Z) == 1) runz();
+          if (digitalRead(KHOP_Z == 0)) qt = 0;
+        }
+      }
+    }
+    Serial.print("\nEND\n");
+    delay(1000);
+  }
 }
