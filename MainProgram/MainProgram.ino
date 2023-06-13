@@ -91,6 +91,7 @@ void setup() {
   lcd.init();       //Khởi động màn hình. Bắt đầu cho phép Arduino sử dụng màn hình
   lcd.backlight();   //Bật đèn nền
 }
+void ManProgram();
 void runx() {
   digitalWrite(STEP_X, 0);
   delayMicroseconds(600);
@@ -114,6 +115,45 @@ void bao(){
   delay(100);
   digitalWrite(COI_PIN, 0);
   delay(100);
+}
+void ManProgram() {
+  int qt = 0;
+        digitalWrite(ENB_Z, 0);
+        if(digitalRead(START_PIN) == 0){
+          qt = 1;
+        }
+        Serial.print("QT = ");
+        Serial.println(qt);
+        while (qt == 1 && digitalRead(S1_PIN) == 1) {
+          if (digitalRead(START_PIN) == 0) {
+            digitalWrite(DIR_Z, 0);
+            while(digitalRead(CTHT_HAN_PIN) == 1 & digitalRead(START_PIN) == 0) runz();
+          }
+          if (digitalRead(CTHT_HAN_PIN) == 0) qt = 2;
+          Serial.print("QT = ");
+          Serial.println(qt);
+        }
+        while(qt == 2) {
+          Serial.print("QT = ");
+          Serial.println(qt);
+          if (digitalRead(SET_PIN) == 0) {
+            digitalWrite(HAN_PIN, 1);
+            delay(50);
+            digitalWrite(HAN_PIN, 0);
+            bao();
+            qt = 3;
+          }
+        }
+        while(qt == 3) {
+          Serial.print("QT = ");
+          Serial.println(qt);
+          digitalWrite(DIR_Z, 1);
+          while(digitalRead(KHOP_Z) == 1) runz();
+          if (digitalRead(KHOP_Z == 0)) qt = 0;
+        }
+}
+void Reset() {
+  int check = 0;
 }
 void loop() {
   while(1) {
@@ -194,74 +234,27 @@ void loop() {
         }
       }
     }// AUTO
-    while (digitalRead(S1_PIN) == 1) {
+    while (digitalRead(S1_PIN) == 1) {//MAN
       Serial.println("MAN");
-      bool ready = 1;
-      // while (ready == 0 & digitalRead(S1_PIN) == 1) {
-      //   int check = 0;
-      //   digitalWrite(ENB_X, 1);
-      //   digitalWrite(ENB_Y, 1);
-      //   if(digitalRead(KHOP_X) == 1) {
-      //     digitalWrite(ENB_X, 0);
-      //     digitalWrite(DIR_X, 1);
-      //     while(digitalRead(KHOP_X) == 1) {
-      //       runx();
-      //     }
-      //   } else check++;
-      //   if(digitalRead(KHOP_Y) == 1) {
-      //     digitalWrite(ENB_Y, 0);
-      //     digitalWrite(DIR_Y, 1);
-      //     while(digitalRead(KHOP_Y) == 1) {
-      //       runy();
-      //     }
-      //   } else check++;
-      //   if(digitalRead(KHOP_Z) == 1) {
-      //     digitalWrite(ENB_Z, 0);
-      //     digitalWrite(DIR_Z, 1);
-      //     while(digitalRead(KHOP_Z) == 1) {
-      //       runz();
-      //     }
-      //   } else check++;
-      //   if (check == 3) ready = 1;
-      // }
-      while (ready == 1 & digitalRead(S1_PIN) == 1) {
-        int qt = 0;
+      bool ready = 0;
+      int check = 0;
+      while(check < 2) {
         digitalWrite(ENB_Z, 0);
-        if(digitalRead(START_PIN) == 0){
-          qt = 1;
-        }
-        Serial.print("QT = ");
-        Serial.println(qt);
-        while (qt == 1 & digitalRead(S1_PIN) == 1) {
-          if (digitalRead(START_PIN) == 0) {
-            digitalWrite(DIR_Z, 0);
-            while(digitalRead(CTHT_HAN_PIN) == 1 & digitalRead(START_PIN) == 0) runz();
-          }
-          if (digitalRead(CTHT_HAN_PIN) == 0) qt = 2;
-          Serial.print("QT = ");
-          Serial.println(qt);
-        }
-        while(qt == 2) {
-          Serial.print("QT = ");
-          Serial.println(qt);
-          if (digitalRead(SET_PIN) == 0) {
-            digitalWrite(HAN_PIN, 1);
-            delay(50);
-            digitalWrite(HAN_PIN, 0);
-            bao();
-            qt = 3;
-          }
-        }
-        while(qt == 3) {
-          Serial.print("QT = ");
-          Serial.println(qt);
-          digitalWrite(DIR_Z, 1);
-          while(digitalRead(KHOP_Z) == 1) runz();
-          if (digitalRead(KHOP_Z == 0)) qt = 0;
-        }
+        digitalWrite(DIR_Z, 1);
+        while(digitalRead(KHOP_Z) == 1) runz();
+        if(digitalRead(KHOP_Z) == 0) check++;
+        digitalWrite(ENB_X, 0);
+        digitalWrite(DIR_X, 1);
+        while(digitalRead(KHOP_X) == 1) runx();
+        if(digitalRead(KHOP_X) == 0) check++;
+      }
+      if(check == 2) {
+          ready = 1;
+      }
+      while (ready == 1 && digitalRead(S1_PIN) == 1) {//May da san sang hoat dong che do MAN
+        ManProgram();
       }
     }
     Serial.print("\nEND\n");
-    delay(1000);
   }
 }
