@@ -45,6 +45,8 @@ LiquidCrystal_I2C lcd(0x27,20,4);
 #define LOAD_PIN 11
 #define CLK_PIN 10
 unsigned long time;
+int RS = 0;
+bool ready = 0;
 bool Auto = 0;
 int doc[3] = {0, 0, 0};
 
@@ -137,9 +139,9 @@ void ManProgram() {
           Serial.print("QT = ");
           Serial.println(qt);
           if (digitalRead(SET_PIN) == 0) {
-            digitalWrite(HAN_PIN, 1);
-            delay(50);
-            digitalWrite(HAN_PIN, 0);
+            //digitalWrite(HAN_PIN, 1);
+            //delay(50);
+            //digitalWrite(HAN_PIN, 0);
             bao();
             qt = 3;
           }
@@ -153,104 +155,116 @@ void ManProgram() {
         }
 }
 void Reset() {
-  int check = 0;
+  RS = 0;
+  while(RS == 0) {
+    digitalWrite(ENB_Z, 0);
+    digitalWrite(DIR_Z, 1);
+    while(digitalRead(KHOP_Z) == 1) {
+      runz();
+    }
+    if(digitalRead(KHOP_Z) == 0) RS++;
+  }
+  while(RS == 1) {
+    digitalWrite(ENB_X, 0);
+    digitalWrite(DIR_X, 1);
+    while(digitalRead(KHOP_X) == 1) {
+      runx();
+    }
+    if(digitalRead(KHOP_X) == 0) RS++;
+    for(int i = 0; i < 3; i++) {
+      bao();
+    }
+    ready = 1;
+  }
 }
 void loop() {
   while(1) {
     while (digitalRead(S1_PIN) == 0) {
       //AUTO
       Serial.println("AUTO");
-      if (digitalRead(S2_PIN) == 0) {
-        Serial.println("X Axis");
-        digitalWrite(ENB_X, 1);
-        if (digitalRead(TRAI_PIN) == 1) {
-          digitalWrite(ENB_X, 0);
-          digitalWrite(DIR_X, 0);
-          while(digitalRead(TRAI_PIN) == 1) {
-            runx();
-            doc[0]++;
-          }
+      ready = 0;
+      Reset();
+      while(ready == 1 && digitalRead(S1_PIN) == 0) {
+        if(digitalRead(START_PIN) == 0) {
         }
-        if (digitalRead(PHAI_PIN) == 0) {
-          if (digitalRead(KHOP_X) == 1) {
+        if (digitalRead(S2_PIN) == 0) {
+          Serial.println("X Axis");
+          digitalWrite(ENB_X, 1);
+          if (digitalRead(TRAI_PIN) == 1) {
             digitalWrite(ENB_X, 0);
-            digitalWrite(DIR_X, 1);
-            while(digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_X) == 1) {
+            digitalWrite(DIR_X, 0);
+            while(digitalRead(TRAI_PIN) == 1) {
               runx();
-              doc[0]--;
+              doc[0]++;
             }
           }
-          else {
-            doc[0] = 0;
-            for(int i = 0; i < 3; i++) {
-              bao();
+          if (digitalRead(PHAI_PIN) == 0) {
+            if (digitalRead(KHOP_X) == 1) {
+              digitalWrite(ENB_X, 0);
+              digitalWrite(DIR_X, 1);
+              while(digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_X) == 1) {
+                runx();
+                doc[0]--;
+              }
+            }
+            else {
+              doc[0] = 0;
+              for(int i = 0; i < 3; i++) {
+                bao();
+              }
             }
           }
-        }
-        if (digitalRead(SET_PIN) == 0) {
-          EEPROM.write(0, doc[0]);
-          Serial.print("doc x: ");
-          Serial.println(EEPROM.read(0));
-          bao();
-        }
-      }
-      else {
-        Serial.println("Z Axis");
-        if (digitalRead(TRAI_PIN) == 1) {
-          digitalWrite(ENB_Z, 0);
-          digitalWrite(ENB_Y, 0);
-          digitalWrite(DIR_Z, 0);
-          digitalWrite(DIR_Y, 0);
-          while(digitalRead(TRAI_PIN) == 1) {
-            runz();
-            doc[1]++;
+          if (digitalRead(SET_PIN) == 0) {
+            EEPROM.write(0, doc[0]);
+            Serial.print("doc x: ");
+            Serial.println(EEPROM.read(0));
+            bao();
           }
         }
-        if (digitalRead(PHAI_PIN) == 0) {
-          Serial.println("Z Len");
-          if ( digitalRead(KHOP_Z) == 1) {
+        else {
+          Serial.println("Z Axis");
+          if (digitalRead(TRAI_PIN) == 1) {
             digitalWrite(ENB_Z, 0);
-            digitalWrite(ENB_Y, 0);
-            digitalWrite(DIR_Z, 1);
-            digitalWrite(DIR_Y, 1);
-            while(digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_Z) == 1) {
+            digitalWrite(DIR_Z, 0);
+            while(digitalRead(TRAI_PIN) == 1) {
               runz();
-              doc[1]--;
+              doc[1]++;
             }
           }
-          else {
-            doc[1] = 0;
-            digitalWrite(ENB_Z, 0);
-            for(int i = 0; i < 3; i++) {
-              bao();
+          if (digitalRead(PHAI_PIN) == 0) {
+            Serial.println("Z Len");
+            if ( digitalRead(KHOP_Z) == 1) {
+              digitalWrite(ENB_Z, 0);
+              digitalWrite(ENB_Y, 0);
+              digitalWrite(DIR_Z, 1);
+              digitalWrite(DIR_Y, 1);
+              while(digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_Z) == 1) {
+                runz();
+                doc[1]--;
+              }
+            }
+            else {
+              doc[1] = 0;
+              digitalWrite(ENB_Z, 0);
+              for(int i = 0; i < 3; i++) {
+                bao();
+              }
             }
           }
-        }
-        if (digitalRead(SET_PIN) == 0) {
-          EEPROM.write(1, doc[1]);
-          Serial.print("doc z: ");
-          Serial.println(EEPROM.read(1));
-          bao();
+          if (digitalRead(SET_PIN) == 0) {
+            EEPROM.write(1, doc[1]);
+            Serial.print("doc z: ");
+            Serial.println(EEPROM.read(1));
+            bao();
+          }
         }
       }
+      
     }// AUTO
     while (digitalRead(S1_PIN) == 1) {//MAN
       Serial.println("MAN");
-      bool ready = 0;
-      int check = 0;
-      while(check < 2) {
-        digitalWrite(ENB_Z, 0);
-        digitalWrite(DIR_Z, 1);
-        while(digitalRead(KHOP_Z) == 1) runz();
-        if(digitalRead(KHOP_Z) == 0) check++;
-        digitalWrite(ENB_X, 0);
-        digitalWrite(DIR_X, 1);
-        while(digitalRead(KHOP_X) == 1) runx();
-        if(digitalRead(KHOP_X) == 0) check++;
-      }
-      if(check == 2) {
-          ready = 1;
-      }
+      ready = 0;
+      Reset();
       while (ready == 1 && digitalRead(S1_PIN) == 1) {//May da san sang hoat dong che do MAN
         ManProgram();
       }
