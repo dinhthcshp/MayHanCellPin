@@ -48,7 +48,7 @@ unsigned long time;
 int RS = 0;
 bool ready = 0;
 bool Auto = 0;
-int doc[3] = {0, 0, 0};
+int doc[5] = {200, 200, 400, 2, 4};
 
 void setup() {
   pinMode(STEP_X, OUTPUT);
@@ -94,23 +94,23 @@ void setup() {
   lcd.backlight();   //Bật đèn nền
 }
 void ManProgram();
-void runx() {
+void runx(int mu) {
   digitalWrite(STEP_X, 0);
-  delayMicroseconds(600);
+  delayMicroseconds(mu);
   digitalWrite(STEP_X, 1);
-  delayMicroseconds(600);
+  delayMicroseconds(mu);
 }
-void runy() {
+void runy(int mu) {
   digitalWrite(STEP_Y, 0);
-  delayMicroseconds(1000);
+  delayMicroseconds(mu);
   digitalWrite(STEP_Y, 1);
-  delayMicroseconds(1000);
+  delayMicroseconds(mu);
 }
-void runz(){
+void runz(int mu){
   digitalWrite(STEP_Z, 0);
-  delayMicroseconds(1000);
+  delayMicroseconds(mu);
   digitalWrite(STEP_Z, 1);
-  delayMicroseconds(1000);
+  delayMicroseconds(mu);
 }
 void bao(){
   digitalWrite(COI_PIN, 1);
@@ -129,7 +129,7 @@ void ManProgram() {
         while (qt == 1 && digitalRead(S1_PIN) == 1) {
           if (digitalRead(START_PIN) == 0) {
             digitalWrite(DIR_Z, 0);
-            while(digitalRead(CTHT_HAN_PIN) == 1 & digitalRead(START_PIN) == 0) runz();
+            while(digitalRead(CTHT_HAN_PIN) == 1 & digitalRead(START_PIN) == 0) runz(1000);
           }
           if (digitalRead(CTHT_HAN_PIN) == 0) qt = 2;
           Serial.print("QT = ");
@@ -150,17 +150,18 @@ void ManProgram() {
           Serial.print("QT = ");
           Serial.println(qt);
           digitalWrite(DIR_Z, 1);
-          while(digitalRead(KHOP_Z) == 1) runz();
+          while(digitalRead(KHOP_Z) == 1) runz(1000);
           if (digitalRead(KHOP_Z == 0)) qt = 0;
         }
 }
 void Reset() {
+  ready = 0;
   RS = 0;
   while(RS == 0) {
     digitalWrite(ENB_Z, 0);
     digitalWrite(DIR_Z, 1);
     while(digitalRead(KHOP_Z) == 1) {
-      runz();
+      runz(1000);
     }
     if(digitalRead(KHOP_Z) == 0) RS++;
   }
@@ -168,7 +169,7 @@ void Reset() {
     digitalWrite(ENB_X, 0);
     digitalWrite(DIR_X, 1);
     while(digitalRead(KHOP_X) == 1) {
-      runx();
+      runx(600);
     }
     if(digitalRead(KHOP_X) == 0) RS++;
     for(int i = 0; i < 3; i++) {
@@ -182,10 +183,54 @@ void loop() {
     while (digitalRead(S1_PIN) == 0) {
       //AUTO
       Serial.println("AUTO");
-      ready = 0;
       Reset();
       while(ready == 1 && digitalRead(S1_PIN) == 0) {
         if(digitalRead(START_PIN) == 0) {
+          for(int cot = 0; cot < doc[4]; cot++) {
+            for(int hang = 0; hang < doc[3]; hang ++) {
+              digitalWrite(DIR_Z, 0);
+              for(int xungz = 0; xungz < doc[2]; xungz++) {
+                runz(800);
+              }
+              digitalWrite(DIR_Z, 1);
+              for(int xungz = 0; xungz < doc[2]; xungz++) {
+                runz(800);
+              }
+              if(hang < doc[3] - 1) {
+                if(cot % 2 == 0) {
+                  digitalWrite(ENB_Y, 0);
+                  digitalWrite(DIR_Y, 1);
+                  for(int xungy = 0; xungy < doc[1]; xungy++) {
+                    runy(1000);
+                  }
+                  digitalWrite(ENB_Y, 1);
+                }
+                else {
+                  digitalWrite(ENB_Y, 0);
+                  digitalWrite(DIR_Y, 0);
+                  for(int xungy = 0; xungy < doc[1]; xungy++) {
+                    runy(1000);
+                  }
+                  digitalWrite(ENB_Y, 1);
+                }
+              }
+            }
+            if(cot == doc[4] - 1) {
+              Reset();
+              for(int i = 0; i < 3; i++) {
+                bao();
+              }
+              break;
+            }
+            else {
+              digitalWrite(ENB_X, 0);
+              digitalWrite(DIR_X, 0);
+              for(int xungx = 0; xungx < doc[0]; xungx++) {
+                runx(600);
+                }
+              digitalWrite(ENB_X, 1);
+            }
+          }
         }
         if (digitalRead(S2_PIN) == 0) {
           Serial.println("X Axis");
@@ -194,8 +239,8 @@ void loop() {
             digitalWrite(ENB_X, 0);
             digitalWrite(DIR_X, 0);
             while(digitalRead(TRAI_PIN) == 1) {
-              runx();
-              doc[0]++;
+              runx(600);
+              //doc[0]++;
             }
           }
           if (digitalRead(PHAI_PIN) == 0) {
@@ -203,7 +248,7 @@ void loop() {
               digitalWrite(ENB_X, 0);
               digitalWrite(DIR_X, 1);
               while(digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_X) == 1) {
-                runx();
+                runx(600);
                 doc[0]--;
               }
             }
@@ -227,8 +272,8 @@ void loop() {
             digitalWrite(ENB_Z, 0);
             digitalWrite(DIR_Z, 0);
             while(digitalRead(TRAI_PIN) == 1) {
-              runz();
-              doc[1]++;
+              runz(1000);
+              //doc[1]++;
             }
           }
           if (digitalRead(PHAI_PIN) == 0) {
@@ -239,8 +284,8 @@ void loop() {
               digitalWrite(DIR_Z, 1);
               digitalWrite(DIR_Y, 1);
               while(digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_Z) == 1) {
-                runz();
-                doc[1]--;
+                runz(1000);
+                //doc[1]--;
               }
             }
             else {
