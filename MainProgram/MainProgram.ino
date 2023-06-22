@@ -1,9 +1,7 @@
-#include <OneButton.h>
 #include <EEPROM.h>
 #include <Wire.h>;
 #include <LiquidCrystal_I2C.h>;
 LiquidCrystal_I2C lcd(0x27, 20, 4);
-
 ///////////////////////TP6600
 #define STEP_X 43
 #define DIR_X 45
@@ -49,9 +47,9 @@ unsigned long time;
 int RS = 0;
 bool ready = 0;
 bool Auto = 0;
-int data[10][6];
-int data1[6];
-
+unsigned int type = 1;
+unsigned int data[10][6];
+unsigned int data1[6];
 
 void setup() {
   pinMode(STEP_X, OUTPUT);
@@ -98,6 +96,12 @@ void setup() {
   data[0][3] = 2;
   data[0][4] = 4;
   data[0][5] = 20;
+  data[1][0] = 10;
+  data[2][0] = 20;
+  data[3][0] = 30;
+  data[4][0] = 60;
+  data[6][0] = 220;
+  data1[3] = data1[4] = 1;
   lcd.init();       //Khởi động màn hình. Bắt đầu cho phép Arduino sử dụng màn hình
   lcd.backlight();  //Bật đèn nền
 }
@@ -233,17 +237,17 @@ void Reset() {
     ready = 1;
   }
 }
-void Show(int distanceX, int distanceY, int distanceZ, int cellY, int cellX, int tg) {
+void Show(int loai, int distanceX, int distanceY, int distanceZ, int cellY, int cellX, int tg) {
   lcd.setCursor(2, 0);
-  lcd.print("MAY HAN CELL PIN");
+  lcd.print("Pin loai");
+  lcd.setCursor(11, 0);
+  lcd.print(loai);
   lcd.setCursor(0, 1);
   lcd.print("Khoang cach:");
   lcd.setCursor(2, 2);
   lcd.print("X:");
   lcd.setCursor(4, 2);
-  if (distanceX > 99) {
-    lcd.print(distanceX);
-  } else lcd.print((float)distanceX);
+  lcd.print(distanceX);
   lcd.setCursor(8, 2);
   lcd.print("Y:");
   lcd.setCursor(10, 2);
@@ -267,17 +271,17 @@ void Show(int distanceX, int distanceY, int distanceZ, int cellY, int cellX, int
   lcd.setCursor(18, 3);
   lcd.print("ms");
 }
-void ShowSelect(int distanceX, int distanceY, int distanceZ, int cellY, int cellX, int tg) {
-  lcd.setCursor(5, 0);
-  lcd.print("Dieu Chinh");
+void ShowSelect(int loai, int distanceX, int distanceY, int distanceZ, int cellY, int cellX, int tg) {
+  lcd.setCursor(0, 0);
+  lcd.print("Dieu chinh pin loai");
+  lcd.setCursor(19, 0);
+  lcd.print(loai);
   lcd.setCursor(0, 1);
   lcd.print("Khoang cach:");
   lcd.setCursor(2, 2);
   lcd.print("X:");
   lcd.setCursor(4, 2);
-  if (distanceX > 99) {
-    lcd.print(distanceX);
-  } else lcd.print((float)distanceX);
+  lcd.print(distanceX);
   lcd.setCursor(8, 2);
   lcd.print("Y:");
   lcd.setCursor(10, 2);
@@ -307,11 +311,11 @@ void loop() {
       //AUTO
       Reset();
       while (ready == 1 && digitalRead(S1_PIN) == 0) {
-          Show(data[0][0], data[0][1], data[0][2], data[0][3], data[0][4], data[0][5]);
+        Show(type, EEPROM.read(type * 6 + 0), EEPROM.read(type * 6 + 1), EEPROM.read(type * 6 + 2), EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4), EEPROM.read(type * 6 + 5));
         if (digitalRead(START_PIN) == 0) {
           digitalWrite(DEN_DO_PIN, 1);
           digitalWrite(DEN_XANH_PIN, 0);
-          AutoProgram(data[0][0], data[0][1], data[0][2], data[0][3], data[0][4]);
+          AutoProgram(EEPROM.read(type * 6 + 0), EEPROM.read(type * 6 + 1), EEPROM.read(type * 6 + 2), EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4));
         } else {
           digitalWrite(DEN_DO_PIN, 0);
           digitalWrite(DEN_XANH_PIN, 1);
@@ -322,200 +326,223 @@ void loop() {
           int SELECT = 0;
           lcd.clear();
           while (SET == 1) {
-            ShowSelect(data1[0], data1[1], data1[2], data1[3], data1[4], data[5]);
+            if (digitalRead(START_PIN) == 0) {
+              delay(20);
+              if (digitalRead(START_PIN) == 0) {
+                lcd.clear();
+                type++;
+                if (type > 10) type = 1;
+              }
+            }
+            ShowSelect(type, EEPROM.read(type * 6 + 0), EEPROM.read(type * 6 + 1), EEPROM.read(type * 6 + 2), EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4), EEPROM.read(type * 6 + 5));
+            if (digitalRead(SET_PIN) == 0) {
+              for (int i = 0; i < 7; i++) {
+                data1[i] = EEPROM.read(type * 6 + i);
+              }
+              SET = 2;
+              break;
+            }
+          }
+          while (SET == 2) {
+            ShowSelect(type, data1[0], data1[1], data1[2], data1[3], data1[4], data1[5]);
             SELECT = int((float(analogRead(TG_PIN)) / 1023.0) * 5.0);
-            if (SELECT == 0) {
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(4, 2);
-                lcd.print("    ");
-                time = millis();
-              }
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(4, 2);
-                lcd.print(data1[0]);
-                time = millis();
-              }
-              digitalWrite(ENB_X, 1);
-              if (digitalRead(TRAI_PIN) == 1) {
-                digitalWrite(ENB_X, 0);
-                digitalWrite(DIR_X, 0);
-                while (digitalRead(TRAI_PIN) == 1) {
-                  runx(1200);
-                  data1[0]++;
+
+            switch (SELECT) {
+              case 0:
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(4, 2);
+                  lcd.print("    ");
+                  time = millis();
                 }
-              }
-              if (digitalRead(PHAI_PIN) == 0) {
-                if (digitalRead(KHOP_X) == 1) {
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(4, 2);
+                  lcd.print(data1[0]);
+                  time = millis();
+                }
+                digitalWrite(ENB_X, 1);
+                if (digitalRead(TRAI_PIN) == 1) {
                   digitalWrite(ENB_X, 0);
-                  digitalWrite(DIR_X, 1);
-                  while (digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_X) == 1) {
+                  digitalWrite(DIR_X, 0);
+                  while (digitalRead(TRAI_PIN) == 1) {
                     runx(1200);
-                    data1[0]--;
-                  }
-                } else {
-                  data1[0] = 0;
-                  for (int i = 0; i < 3; i++) {
-                    bao();
+                    data1[0]++;
                   }
                 }
-              }
-            }
-            if (SELECT == 1) {
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(10, 2);
-                lcd.print("    ");
-                time = millis();
-              }
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(10, 2);
-                lcd.print(data1[1]);
-                time = millis();
-              }
-              if (digitalRead(TRAI_PIN) == 1) {
-                digitalWrite(ENB_Y, 0);
-                digitalWrite(DIR_Y, 0);
-                while (digitalRead(TRAI_PIN) == 1) {
-                  runy(1000);
-                  data1[1]++;
+                if (digitalRead(PHAI_PIN) == 0) {
+                  if (digitalRead(KHOP_X) == 1) {
+                    digitalWrite(ENB_X, 0);
+                    digitalWrite(DIR_X, 1);
+                    while (digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_X) == 1) {
+                      runx(1200);
+                      data1[0]--;
+                    }
+                  } else {
+                    data1[0] = 0;
+                    for (int i = 0; i < 3; i++) {
+                      bao();
+                    }
+                  }
                 }
-              }
-              if (digitalRead(PHAI_PIN) == 0) {
-                if (digitalRead(KHOP_Y) == 1) {
+                break;
+              case 1:
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(10, 2);
+                  lcd.print("    ");
+                  time = millis();
+                }
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(10, 2);
+                  lcd.print(data1[1]);
+                  time = millis();
+                }
+                if (digitalRead(TRAI_PIN) == 1) {
                   digitalWrite(ENB_Y, 0);
-                  digitalWrite(DIR_Y, 1);
-                  while (digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_Y) == 1) {
+                  digitalWrite(DIR_Y, 0);
+                  while (digitalRead(TRAI_PIN) == 1) {
                     runy(1000);
-                    data1[1]--;
-                  }
-                } else {
-                  digitalWrite(ENB_Y, 1);
-                  data1[1] = 0;
-                  for (int i = 0; i < 3; i++) {
-                    bao();
+                    data1[1]++;
                   }
                 }
-              }
-            }
-            if (SELECT == 2) {
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(16, 2);
-                lcd.print("    ");
-                time = millis();
-              }
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(16, 2);
-                lcd.print(data1[2]);
-                time = millis();
-              }
-              if (digitalRead(TRAI_PIN) == 1) {
-                digitalWrite(ENB_Z, 0);
-                digitalWrite(DIR_Z, 0);
-                while (digitalRead(TRAI_PIN) == 1) {
-                  runz(1000);
-                  data1[2]++;
+                if (digitalRead(PHAI_PIN) == 0) {
+                  if (digitalRead(KHOP_Y) == 1) {
+                    digitalWrite(ENB_Y, 0);
+                    digitalWrite(DIR_Y, 1);
+                    while (digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_Y) == 1) {
+                      runy(1000);
+                      data1[1]--;
+                    }
+                  } else {
+                    digitalWrite(ENB_Y, 1);
+                    data1[1] = 0;
+                    for (int i = 0; i < 3; i++) {
+                      bao();
+                    }
+                  }
                 }
-              }
-              if (digitalRead(PHAI_PIN) == 0) {
-                Serial.println("Z Len");
-                if (digitalRead(KHOP_Z) == 1) {
+                break;
+              case 2:
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(16, 2);
+                  lcd.print("    ");
+                  time = millis();
+                }
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(16, 2);
+                  lcd.print(data1[2]);
+                  time = millis();
+                }
+                if (digitalRead(TRAI_PIN) == 1) {
                   digitalWrite(ENB_Z, 0);
-                  digitalWrite(DIR_Z, 1);
-                  while (digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_Z) == 1) {
+                  digitalWrite(DIR_Z, 0);
+                  while (digitalRead(TRAI_PIN) == 1) {
                     runz(1000);
-                    data1[2]--;
-                  }
-                } else {
-                  digitalWrite(ENB_Z, 0);
-                  data1[2] = 0;
-                  for (int i = 0; i < 3; i++) {
-                    bao();
+                    data1[2]++;
                   }
                 }
-              }
-            }
-            if (SELECT == 3) {
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(5, 3);
-                lcd.print("  ");
-                time = millis();
-              }
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(5, 3);
-                lcd.print(data1[4]);
-                time = millis();
-              }
-              if (digitalRead(PHAI_PIN) == 0) {
-                delay(20);
                 if (digitalRead(PHAI_PIN) == 0) {
-                  data1[4]++;
-                  if (data1[4] > 15) data1[4] = 15;
+                  Serial.println("Z Len");
+                  if (digitalRead(KHOP_Z) == 1) {
+                    digitalWrite(ENB_Z, 0);
+                    digitalWrite(DIR_Z, 1);
+                    while (digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_Z) == 1) {
+                      runz(1000);
+                      data1[2]--;
+                    }
+                  } else {
+                    digitalWrite(ENB_Z, 0);
+                    data1[2] = 0;
+                    for (int i = 0; i < 3; i++) {
+                      bao();
+                    }
+                  }
                 }
-              }
-              if (digitalRead(TRAI_PIN) == 1) {
-                delay(20);
-                if (digitalRead(TRAI_PIN) == 1) {
-                  data1[4]--;
-                  if (data1[4] < 1) data1[4] = 1;
+                break;
+              case 3:
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(5, 3);
+                  lcd.print("  ");
+                  time = millis();
                 }
-              }
-            }
-            if (SELECT == 4) {
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(9, 3);
-                lcd.print("   ");
-                time = millis();
-              }
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(9, 3);
-                lcd.print(data1[3]);
-                time = millis();
-              }
-              if (digitalRead(PHAI_PIN) == 0) {
-                delay(20);
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(5, 3);
+                  lcd.print(data1[4]);
+                  time = millis();
+                }
                 if (digitalRead(PHAI_PIN) == 0) {
-                  data1[3]++;
-                  if (data1[3] > 15) data1[3] = 15;
+                  delay(20);
+                  if (digitalRead(PHAI_PIN) == 0) {
+                    data1[4]++;
+                    if (data1[4] > 15) data1[4] = 15;
+                  }
                 }
-              }
-              if (digitalRead(TRAI_PIN) == 1) {
-                delay(20);
                 if (digitalRead(TRAI_PIN) == 1) {
-                  data1[3]--;
-                  if (data1[3] < 1) data1[3] = 1;
-                }                
-              }
-            }
-            if (SELECT == 5) {
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(16, 3);
-                lcd.print("   ");
-                time = millis();
-              }
-              if (unsigned(millis()) - time > 500) {
-                lcd.setCursor(16, 3);
-                lcd.print(data1[5]);
-                time = millis();
-              }
-              if (digitalRead(PHAI_PIN) == 0) {
-                delay(20);
+                  delay(20);
+                  if (digitalRead(TRAI_PIN) == 1) {
+                    data1[4]--;
+                    if (data1[4] < 1) data1[4] = 1;
+                  }
+                }
+                break;
+              case 4:
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(9, 3);
+                  lcd.print("   ");
+                  time = millis();
+                }
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(9, 3);
+                  lcd.print(data1[3]);
+                  time = millis();
+                }
                 if (digitalRead(PHAI_PIN) == 0) {
-                  data1[5] = data1[5] + 5;
-                  if (data1[5] > 50) data1[5] = 50;
+                  delay(20);
+                  if (digitalRead(PHAI_PIN) == 0) {
+                    data1[3]++;
+                    if (data1[3] > 15) data1[3] = 15;
+                  }
                 }
-              }
-              if (digitalRead(TRAI_PIN) == 1) {
-                delay(20);
                 if (digitalRead(TRAI_PIN) == 1) {
-                  data1[5] = data1[5] - 5;
-                  if (data1[5] < 20) data1[5] = 20;
+                  delay(20);
+                  if (digitalRead(TRAI_PIN) == 1) {
+                    data1[3]--;
+                    if (data1[3] < 1) data1[3] = 1;
+                  }
                 }
-              }
+                break;
+              case 5:
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(16, 3);
+                  lcd.print("   ");
+                  time = millis();
+                }
+                if (unsigned(millis()) - time > 500) {
+                  lcd.setCursor(16, 3);
+                  lcd.print(data1[5]);
+                  time = millis();
+                }
+                if (digitalRead(PHAI_PIN) == 0) {
+                  delay(20);
+                  if (digitalRead(PHAI_PIN) == 0) {
+                    data1[5] = data1[5] + 5;
+                    if (data1[5] > 50) data1[5] = 50;
+                  }
+                }
+                if (digitalRead(TRAI_PIN) == 1) {
+                  delay(20);
+                  if (digitalRead(TRAI_PIN) == 1) {
+                    data1[5] = data1[5] - 5;
+                    if (data1[5] < 20) data1[5] = 20;
+                  }
+                }
+                break;
             }
             if (digitalRead(SET_PIN) == 0) {
               delay(1000);
               if (digitalRead(SET_PIN) == 0) {
-                for (int i = 0; i < 7; i++) {
-                  data[0][i] = data1[i];
+                lcd.clear();
+                for (int i = 0; i < 6; i++) {
+                  data[type - 1][i] = data1[i];
+                  EEPROM.write(i + ((type - 1) * 6), data[0][i]);
                 }
                 for (int i = 0; i < 2; i++) bao();
                 break;
