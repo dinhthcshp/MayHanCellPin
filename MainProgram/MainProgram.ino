@@ -48,7 +48,9 @@ unsigned long time;
 int RS = 0;
 bool ready = 0;
 bool Auto = 0;
-int doc[5] = {200, 200, 400, 2, 4};
+int data[10][5] = {200, 200, 400, 2, 4};
+doc[0][0] = 200;
+doc[]
 
 void setup() {
   pinMode(STEP_X, OUTPUT);
