@@ -96,12 +96,19 @@ void setup() {
   data[0][3] = 2;
   data[0][4] = 4;
   data[0][5] = 20;
-  data[1][0] = 10;
-  data[2][0] = 20;
-  data[3][0] = 30;
-  data[4][0] = 60;
-  data[6][0] = 220;
   data1[3] = data1[4] = 1;
+  EEPROM.write(0, 100);
+  delay(5);
+  EEPROM.write(1, 100);
+  delay(5);
+  EEPROM.write(2, 133);
+  delay(5);
+  EEPROM.write(3, 2);
+  delay(5);
+  EEPROM.write(4, 4);
+  delay(5);
+  EEPROM.write(5, 20);
+
   lcd.init();       //Khởi động màn hình. Bắt đầu cho phép Arduino sử dụng màn hình
   lcd.backlight();  //Bật đèn nền
 }
@@ -163,6 +170,13 @@ void AutoProgram(int distanceX, int distanceY, int distanceZ, int cellY, int cel
     }
     if (cot == cellX - 1) {
       Reset();
+      if (cot % 2 == 0) {
+        digitalWrite(ENB_Y, 0);
+        digitalWrite(DIR_Y, 0);
+        for (int i = 0; i < distanceY; i++) {
+          runy(1000);
+        }
+      }
       for (int i = 0; i < 3; i++) {
         bao();
       }
@@ -216,6 +230,7 @@ void ManProgram() {
 void Reset() {
   ready = 0;
   RS = 0;
+  bool tmp = 0;
   while (RS == 0) {
     digitalWrite(ENB_Z, 0);
     digitalWrite(DIR_Z, 1);
@@ -236,6 +251,28 @@ void Reset() {
     }
     ready = 1;
   }
+  // while (RS == 2) {
+  //   digitalWrite(ENB_Y, 0);
+  //   digitalWrite(DIR_Y, 1);
+  //   while (digitalRead(KHOP_Y) == 1 && tmp == 0) {
+  //     runy(1000);
+  //     if (digitalRead(KHOP_Y) == 0) tmp = 1;
+  //   }
+  //   while (tmp == 1) {
+  //     digitalWrite(ENB_Y, 0);
+  //     digitalWrite(DIR_Y, 0);
+  //     for (int i = 0; i < 400; i++) {
+  //       runy(1000);
+  //     }
+  //     RS++;
+  //     tmp = 2;
+  //     break;
+  //   }
+  //   for (int i = 0; i < 3; i++) {
+  //     bao();
+  //   }
+  //   ready = 1;
+  // }
 }
 void Show(int loai, int distanceX, int distanceY, int distanceZ, int cellY, int cellX, int tg) {
   lcd.setCursor(2, 0);
@@ -311,11 +348,12 @@ void loop() {
       //AUTO
       Reset();
       while (ready == 1 && digitalRead(S1_PIN) == 0) {
-        Show(type, EEPROM.read(type * 6 + 0), EEPROM.read(type * 6 + 1), EEPROM.read(type * 6 + 2), EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4), EEPROM.read(type * 6 + 5));
+        //Show(type, EEPROM.read(0), EEPROM.read(1), EEPROM.read(2), EEPROM.read(3), EEPROM.read(4), EEPROM.read(5));
+        Show(type, EEPROM.read((type - 1) * 6 + 0) * 3, EEPROM.read((type - 1) * 6 + 1) * 3, EEPROM.read((type - 1) * 6 + 2) * 3, EEPROM.read((type - 1) * 6 + 3), EEPROM.read((type - 1) * 6 + 4), EEPROM.read((type - 1) * 6 + 5));
         if (digitalRead(START_PIN) == 0) {
           digitalWrite(DEN_DO_PIN, 1);
           digitalWrite(DEN_XANH_PIN, 0);
-          AutoProgram(EEPROM.read(type * 6 + 0), EEPROM.read(type * 6 + 1), EEPROM.read(type * 6 + 2), EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4));
+          AutoProgram(EEPROM.read((type - 1) * 6 + 0) * 3, EEPROM.read((type - 1) * 6 + 1) * 3, EEPROM.read((type - 1) * 6 + 2) * 3, EEPROM.read((type - 1) * 6 + 3), EEPROM.read((type - 1) * 6 + 4));
         } else {
           digitalWrite(DEN_DO_PIN, 0);
           digitalWrite(DEN_XANH_PIN, 1);
@@ -349,12 +387,12 @@ void loop() {
 
             switch (SELECT) {
               case 0:
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(4, 2);
                   lcd.print("    ");
                   time = millis();
                 }
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(4, 2);
                   lcd.print(data1[0]);
                   time = millis();
@@ -385,12 +423,12 @@ void loop() {
                 }
                 break;
               case 1:
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(10, 2);
                   lcd.print("    ");
                   time = millis();
                 }
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(10, 2);
                   lcd.print(data1[1]);
                   time = millis();
@@ -421,12 +459,12 @@ void loop() {
                 }
                 break;
               case 2:
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(16, 2);
                   lcd.print("    ");
                   time = millis();
                 }
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(16, 2);
                   lcd.print(data1[2]);
                   time = millis();
@@ -458,12 +496,12 @@ void loop() {
                 }
                 break;
               case 3:
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(5, 3);
                   lcd.print("  ");
                   time = millis();
                 }
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(5, 3);
                   lcd.print(data1[4]);
                   time = millis();
@@ -484,12 +522,12 @@ void loop() {
                 }
                 break;
               case 4:
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(9, 3);
                   lcd.print("   ");
                   time = millis();
                 }
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(9, 3);
                   lcd.print(data1[3]);
                   time = millis();
@@ -510,12 +548,12 @@ void loop() {
                 }
                 break;
               case 5:
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(16, 3);
-                  lcd.print("   ");
+                  lcd.print("  ");
                   time = millis();
                 }
-                if (unsigned(millis()) - time > 500) {
+                if (unsigned(millis()) - time > 1000) {
                   lcd.setCursor(16, 3);
                   lcd.print(data1[5]);
                   time = millis();
@@ -542,7 +580,13 @@ void loop() {
                 lcd.clear();
                 for (int i = 0; i < 6; i++) {
                   data[type - 1][i] = data1[i];
-                  EEPROM.write(i + ((type - 1) * 6), data[0][i]);
+                  if (i < 3) {
+                    EEPROM.write(i + ((type - 1) * 6), data1[i] / 3);
+                    delay(5);
+                  } else {
+                    EEPROM.write(i + ((type - 1) * 6), data1[i]);
+                    delay(5);
+                  }
                 }
                 for (int i = 0; i < 2; i++) bao();
                 break;
@@ -551,6 +595,16 @@ void loop() {
           }
           //EEPROM.write(0, doc[0]);
           //Serial.println(EEPROM.read(0));
+        }
+        if (digitalRead(PHAI_PIN) == 0) {
+          type++;
+          if (type > 10) type = 1;
+          lcd.clear();
+        }
+        if (digitalRead(TRAI_PIN) == 1) {
+          type--;
+          if (type < 1) type = 10;
+          lcd.clear();
         }
         if (digitalRead(S2_PIN) == 0) {
           //Serial.println("X Axis");
