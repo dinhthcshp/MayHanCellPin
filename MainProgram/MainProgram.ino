@@ -50,8 +50,20 @@ bool Auto = 0;
 unsigned int type = 1;
 unsigned int data[10][6];
 unsigned int data1[6];
+bool RUN = 0;
 
 void setup() {
+  lcd.init();       //Kh?i d?ng mï¿½n hï¿½nh. B?t d?u cho phï¿½p Arduino s? d?ng mï¿½n hï¿½nh
+  lcd.backlight();  //B?t dï¿½n n?n
+  lcd.setCursor(2, 0);
+  lcd.print("MAY HAN CELL PIN");
+  lcd.setCursor(1, 1);
+  lcd.print("KhacDinh - 19146174");
+  lcd.setCursor(1, 2);
+  lcd.print("DucDuy - 19146174");
+  lcd.setCursor(1, 3);
+  lcd.print("VanThieu - 19146174");
+
   pinMode(STEP_X, OUTPUT);
   pinMode(DIR_X, OUTPUT);
   pinMode(ENB_X, OUTPUT);
@@ -90,29 +102,25 @@ void setup() {
 
   Serial.begin(9600);
   time = millis();
-  data[0][0] = 200;
-  data[0][1] = 200;
-  data[0][2] = 400;
-  data[0][3] = 2;
-  data[0][4] = 4;
-  data[0][5] = 20;
+  data[0][0] = EEPROM.read(0);
+  data[0][1] = EEPROM.read(1);
+  data[0][2] = EEPROM.read(2);
+  data[0][3] = EEPROM.read(3);
+  data[0][4] = EEPROM.read(4);
+  data[0][5] = EEPROM.read(5);
   data1[3] = data1[4] = 1;
-  EEPROM.write(0, 100);
-  delay(5);
-  EEPROM.write(1, 100);
-  delay(5);
-  EEPROM.write(2, 133);
-  delay(5);
-  EEPROM.write(3, 2);
-  delay(5);
-  EEPROM.write(4, 4);
-  delay(5);
-  EEPROM.write(5, 20);
-
-  lcd.init();       //Khởi động màn hình. Bắt đầu cho phép Arduino sử dụng màn hình
-  lcd.backlight();  //Bật đèn nền
+  // EEPROM.write(0, 100);
+  // delay(5);
+  // EEPROM.write(1, 100);
+  // delay(5);
+  // EEPROM.write(2, 133);
+  // delay(5);
+  // EEPROM.write(3, 2);
+  // delay(5);
+  // EEPROM.write(4, 4);
+  // delay(5);
+  // EEPROM.write(5, 20);
 }
-void ManProgram();
 void runx(int mu) {
   digitalWrite(STEP_X, 0);
   delayMicroseconds(mu);
@@ -190,6 +198,7 @@ void AutoProgram(int distanceX, int distanceY, int distanceZ, int cellY, int cel
       digitalWrite(ENB_X, 1);
     }
   }
+  RUN = 0;
 }
 void ManProgram() {
   int qt = 0;
@@ -197,31 +206,20 @@ void ManProgram() {
   if (digitalRead(START_PIN) == 0) {
     qt = 1;
   }
-  Serial.print("QT = ");
-  Serial.println(qt);
   while (qt == 1 && digitalRead(S1_PIN) == 1) {
     if (digitalRead(START_PIN) == 0) {
       digitalWrite(DIR_Z, 0);
       while (digitalRead(CTHT_HAN_PIN) == 1 & digitalRead(START_PIN) == 0) runz(1000);
     }
     if (digitalRead(CTHT_HAN_PIN) == 0) qt = 2;
-    Serial.print("QT = ");
-    Serial.println(qt);
   }
   while (qt == 2) {
-    Serial.print("QT = ");
-    Serial.println(qt);
     if (digitalRead(SET_PIN) == 0) {
-      //digitalWrite(HAN_PIN, 1);
-      //delay(50);
-      //digitalWrite(HAN_PIN, 0);
       bao();
       qt = 3;
     }
   }
   while (qt == 3) {
-    Serial.print("QT = ");
-    Serial.println(qt);
     digitalWrite(DIR_Z, 1);
     while (digitalRead(KHOP_Z) == 1) runz(1000);
     if (digitalRead(KHOP_Z == 0)) qt = 0;
@@ -275,9 +273,9 @@ void Reset() {
   // }
 }
 void Show(int loai, int distanceX, int distanceY, int distanceZ, int cellY, int cellX, int tg) {
-  lcd.setCursor(2, 0);
+  lcd.setCursor(4, 0);
   lcd.print("Pin loai");
-  lcd.setCursor(11, 0);
+  lcd.setCursor(13, 0);
   lcd.print(loai);
   lcd.setCursor(0, 1);
   lcd.print("Khoang cach:");
@@ -347,10 +345,19 @@ void loop() {
     while (digitalRead(S1_PIN) == 0) {
       //AUTO
       Reset();
+      lcd.clear();
       while (ready == 1 && digitalRead(S1_PIN) == 0) {
+        while (Serial.available()) {
+          RUN = Serial.read();
+          delay(200);
+        }
         //Show(type, EEPROM.read(0), EEPROM.read(1), EEPROM.read(2), EEPROM.read(3), EEPROM.read(4), EEPROM.read(5));
         Show(type, EEPROM.read((type - 1) * 6 + 0) * 3, EEPROM.read((type - 1) * 6 + 1) * 3, EEPROM.read((type - 1) * 6 + 2) * 3, EEPROM.read((type - 1) * 6 + 3), EEPROM.read((type - 1) * 6 + 4), EEPROM.read((type - 1) * 6 + 5));
+        Serial.println(EEPROM.read((type - 1) * 6 + 0) * 3);
         if (digitalRead(START_PIN) == 0) {
+          RUN = 1;
+        }
+        if (RUN == 1) {
           digitalWrite(DEN_DO_PIN, 1);
           digitalWrite(DEN_XANH_PIN, 0);
           AutoProgram(EEPROM.read((type - 1) * 6 + 0) * 3, EEPROM.read((type - 1) * 6 + 1) * 3, EEPROM.read((type - 1) * 6 + 2) * 3, EEPROM.read((type - 1) * 6 + 3), EEPROM.read((type - 1) * 6 + 4));
@@ -364,21 +371,38 @@ void loop() {
           int SELECT = 0;
           lcd.clear();
           while (SET == 1) {
-            if (digitalRead(START_PIN) == 0) {
+            if (digitalRead(PHAI_PIN) == 0) {
               delay(20);
-              if (digitalRead(START_PIN) == 0) {
-                lcd.clear();
+              if (digitalRead(PHAI_PIN) == 0) {
                 type++;
                 if (type > 10) type = 1;
+                lcd.clear();
               }
             }
-            ShowSelect(type, EEPROM.read(type * 6 + 0), EEPROM.read(type * 6 + 1), EEPROM.read(type * 6 + 2), EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4), EEPROM.read(type * 6 + 5));
-            if (digitalRead(SET_PIN) == 0) {
-              for (int i = 0; i < 7; i++) {
-                data1[i] = EEPROM.read(type * 6 + i);
+            if (digitalRead(TRAI_PIN) == 1) {
+              delay(20);
+              if (digitalRead(TRAI_PIN) == 1) {
+                type--;
+                if (type < 1) type = 10;
+                lcd.clear();
               }
-              SET = 2;
-              break;
+            }
+            if (digitalRead(RESET_PIN) == 0) {
+              SET = 3;
+            }
+            ShowSelect(type, EEPROM.read(type * 6 + 0) * 3, EEPROM.read(type * 6 + 1) * 3, EEPROM.read(type * 6 + 2) * 3, EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4), EEPROM.read(type * 6 + 5));
+            if (digitalRead(SET_PIN) == 0) {
+              if (type == 1 || type == 2) {
+                for (int i = 0; i < 3; i++) {
+                  bao();
+                }
+              } else {
+                for (int i = 0; i < 7; i++) {
+                  data1[i] = EEPROM.read(type * 6 + i);
+                }
+                SET = 2;
+                break;
+              }
             }
           }
           while (SET == 2) {
@@ -478,7 +502,7 @@ void loop() {
                   }
                 }
                 if (digitalRead(PHAI_PIN) == 0) {
-                  Serial.println("Z Len");
+                  //Serial.println("Z Len");
                   if (digitalRead(KHOP_Z) == 1) {
                     digitalWrite(ENB_Z, 0);
                     digitalWrite(DIR_Z, 1);
@@ -597,30 +621,34 @@ void loop() {
           //Serial.println(EEPROM.read(0));
         }
         if (digitalRead(PHAI_PIN) == 0) {
-          type++;
-          if (type > 10) type = 1;
-          lcd.clear();
+          delay(20);
+          if (digitalRead(PHAI_PIN) == 0) {
+            type++;
+            if (type > 10) type = 1;
+            lcd.clear();
+          }
         }
         if (digitalRead(TRAI_PIN) == 1) {
-          type--;
-          if (type < 1) type = 10;
-          lcd.clear();
+          delay(20);
+          if (digitalRead(TRAI_PIN) == 1) {
+            type--;
+            if (type < 1) type = 10;
+            lcd.clear();
+          }
         }
         if (digitalRead(S2_PIN) == 0) {
-          //Serial.println("X Axis");
         } else {
-          Serial.println("Z Axis");
+          //Serial.println("Z Axis");
         }
       }
     }                                   // AUTO
     while (digitalRead(S1_PIN) == 1) {  //MAN
-      Serial.println("MAN");
       ready = 0;
       Reset();
+      lcd.clear();
       while (ready == 1 && digitalRead(S1_PIN) == 1) {  //May da san sang hoat dong che do MAN
         ManProgram();
       }
     }
-    Serial.print("\nEND\n");
   }
 }
