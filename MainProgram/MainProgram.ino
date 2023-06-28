@@ -1,4 +1,5 @@
 #include <EEPROM.h>
+#include <stdio.h>
 #include <Wire.h>;
 #include <LiquidCrystal_I2C.h>;
 LiquidCrystal_I2C lcd(0x27, 20, 4);
@@ -47,9 +48,10 @@ unsigned long time;
 int RS = 0;
 bool ready = 0;
 bool Auto = 0;
-unsigned int type = 1;
+unsigned int type = 0;
 unsigned int data[10][6];
 unsigned int data1[6];
+bool home[3] = { 0, 0, 0 };
 bool RUN = 0;
 
 void setup() {
@@ -145,46 +147,46 @@ void bao() {
   digitalWrite(COI_PIN, 0);
   delay(100);
 }
-void AutoProgram(int distanceX, int distanceY, int distanceZ, int cellY, int cellX) {
+void AutoProgram(int distanceX, int distanceY, int cellY, int cellX) {
   digitalWrite(ENB_X, 1);
   digitalWrite(ENB_Y, 1);
+  home[0] = 0;
+  EEPROM.write(100, home[0]);
+  if (cellX % 2 == 0) home[1] = 1;
+  else home[1] = 0;
+  EEPROM.write(101, home[1]);
   for (int cot = 0; cot < cellX; cot++) {
     for (int hang = 0; hang < cellY; hang++) {
-      digitalWrite(DIR_Z, 0);
-      for (int xungz = 0; xungz < distanceZ; xungz++) {
+      unsigned short int TrucZ = 0;
+      while (digitalRead(CTHT_HAN_PIN) == 1 && TrucZ == 0) {
+        digitalWrite(DIR_Z, 0);
         runz(800);
+        if (digitalRead(CTHT_HAN_PIN) == 0) TrucZ = 1;
       }
-      digitalWrite(DIR_Z, 1);
-      for (int xungz = 0; xungz < distanceZ; xungz++) {
+      while (digitalRead(KHOP_Z) == 1 && TrucZ == 1) {
+        digitalWrite(DIR_Z, 1);
         runz(800);
+        if (digitalRead(KHOP_Z) == 0) TrucZ = 1;
       }
       if (hang < cellY - 1) {
         if (cot % 2 == 0) {
           digitalWrite(ENB_Y, 0);
           digitalWrite(DIR_Y, 1);
           for (int xungy = 0; xungy < distanceY; xungy++) {
-            runy(1000);
+            runy(600);
           }
           digitalWrite(ENB_Y, 1);
         } else {
           digitalWrite(ENB_Y, 0);
           digitalWrite(DIR_Y, 0);
           for (int xungy = 0; xungy < distanceY; xungy++) {
-            runy(1000);
+            runy(600);
           }
           digitalWrite(ENB_Y, 1);
         }
       }
     }
     if (cot == cellX - 1) {
-      Reset();
-      if (cot % 2 == 0) {
-        digitalWrite(ENB_Y, 0);
-        digitalWrite(DIR_Y, 0);
-        for (int i = 0; i < distanceY; i++) {
-          runy(1000);
-        }
-      }
       for (int i = 0; i < 3; i++) {
         bao();
       }
@@ -198,6 +200,7 @@ void AutoProgram(int distanceX, int distanceY, int distanceZ, int cellY, int cel
       digitalWrite(ENB_X, 1);
     }
   }
+  Reset(distanceX * (cellX - 1), distanceY * (cellY - 1));
   RUN = 0;
 }
 void ManProgram() {
@@ -209,7 +212,7 @@ void ManProgram() {
   while (qt == 1 && digitalRead(S1_PIN) == 1) {
     if (digitalRead(START_PIN) == 0) {
       digitalWrite(DIR_Z, 0);
-      while (digitalRead(CTHT_HAN_PIN) == 1 & digitalRead(START_PIN) == 0) runz(1000);
+      while (digitalRead(CTHT_HAN_PIN) == 1 & digitalRead(START_PIN) == 0) runz(800);
     }
     if (digitalRead(CTHT_HAN_PIN) == 0) qt = 2;
   }
@@ -221,56 +224,93 @@ void ManProgram() {
   }
   while (qt == 3) {
     digitalWrite(DIR_Z, 1);
-    while (digitalRead(KHOP_Z) == 1) runz(1000);
+    while (digitalRead(KHOP_Z) == 1) runz(800);
     if (digitalRead(KHOP_Z == 0)) qt = 0;
   }
 }
-void Reset() {
+void Home() {
   ready = 0;
   RS = 0;
-  bool tmp = 0;
+  unsigned short int tmp = 0;
   while (RS == 0) {
     digitalWrite(ENB_Z, 0);
     digitalWrite(DIR_Z, 1);
     while (digitalRead(KHOP_Z) == 1) {
       runz(1000);
     }
-    if (digitalRead(KHOP_Z) == 0) RS++;
+    if (digitalRead(KHOP_Z) == 0) RS = 1;
   }
   while (RS == 1) {
     digitalWrite(ENB_X, 0);
     digitalWrite(DIR_X, 1);
-    while (digitalRead(KHOP_X) == 1) {
+    while (digitalRead(KHOP_X) == 1 && tmp == 0) {
       runx(600);
+      if (digitalRead(KHOP_X) == 0) tmp = 1;
     }
-    if (digitalRead(KHOP_X) == 0) RS++;
+    while (tmp == 1) {
+      digitalWrite(ENB_X, 0);
+      digitalWrite(DIR_X, 0);
+      for (int i = 0; i < 300; i++) {
+        runx(600);
+      }
+      RS = 2;
+      tmp = 2;
+      home[0] = 1;
+      EEPROM.write(100, home[0]);
+      break;
+    }
+  }
+  while (RS == 2) {
+    digitalWrite(ENB_Y, 0);
+    digitalWrite(DIR_Y, 1);
+    while (digitalRead(KHOP_Y) == 1 && tmp == 2) {
+      runy(1000);
+      if (digitalRead(KHOP_Y) == 0) tmp = 3;
+    }
+    while (tmp == 3) {
+      digitalWrite(ENB_Y, 0);
+      digitalWrite(DIR_Y, 0);
+      for (int i = 0; i < 1381; i++) {
+        runy(800);
+      }
+      RS++;
+      tmp = 4;
+      home[1] = 1;
+      EEPROM.write(101, home[1]);
+      break;
+    }
     for (int i = 0; i < 3; i++) {
       bao();
     }
     ready = 1;
   }
-  // while (RS == 2) {
-  //   digitalWrite(ENB_Y, 0);
-  //   digitalWrite(DIR_Y, 1);
-  //   while (digitalRead(KHOP_Y) == 1 && tmp == 0) {
-  //     runy(1000);
-  //     if (digitalRead(KHOP_Y) == 0) tmp = 1;
-  //   }
-  //   while (tmp == 1) {
-  //     digitalWrite(ENB_Y, 0);
-  //     digitalWrite(DIR_Y, 0);
-  //     for (int i = 0; i < 400; i++) {
-  //       runy(1000);
-  //     }
-  //     RS++;
-  //     tmp = 2;
-  //     break;
-  //   }
-  //   for (int i = 0; i < 3; i++) {
-  //     bao();
-  //   }
-  //   ready = 1;
-  // }
+}
+void Reset(int distanceX, int distanceY) {
+  while (digitalRead(KHOP_Z) == 1) {
+    digitalWrite(DIR_Z, 1);
+    digitalWrite(ENB_Z, 0);
+    runz(800);
+  }
+  home[2] = 1;
+  if (home[0] == 0) {
+    digitalWrite(DIR_X, 1);
+    digitalWrite(ENB_X, 0);
+    for (int i = 0; i < distanceX; i++) {
+      runx(600);
+    }
+    home[0] = 1;
+  }
+  if (home[1] == 0) {
+    digitalWrite(DIR_Y, 0);
+    digitalWrite(ENB_Y, 0);
+    for (int i = 0; i < distanceY; i++) {
+      runy(600);
+    }
+    home[1] = 1;
+  }
+  EEPROM.write(100, home[0]);
+  EEPROM.write(101, home[1]);
+  EEPROM.write(102, home[2]);
 }
 void Show(int loai, int distanceX, int distanceY, int distanceZ, int cellY, int cellX, int tg) {
   lcd.setCursor(4, 0);
@@ -344,23 +384,30 @@ void loop() {
   while (1) {
     while (digitalRead(S1_PIN) == 0) {
       //AUTO
-      Reset();
+      if (EEPROM.read(100) == 0 || EEPROM.read(101) == 0) {
+        Home();
+      } else {
+        Reset(0, 0);
+        ready = 1;
+      }
       lcd.clear();
       while (ready == 1 && digitalRead(S1_PIN) == 0) {
         while (Serial.available()) {
           RUN = Serial.read();
           delay(200);
         }
-        //Show(type, EEPROM.read(0), EEPROM.read(1), EEPROM.read(2), EEPROM.read(3), EEPROM.read(4), EEPROM.read(5));
-        Show(type, EEPROM.read((type - 1) * 6 + 0) * 3, EEPROM.read((type - 1) * 6 + 1) * 3, EEPROM.read((type - 1) * 6 + 2) * 3, EEPROM.read((type - 1) * 6 + 3), EEPROM.read((type - 1) * 6 + 4), EEPROM.read((type - 1) * 6 + 5));
-        Serial.println(EEPROM.read((type - 1) * 6 + 0) * 3);
+        type = EEPROM.read(70);
+        Show(type + 1, EEPROM.read(type * 6 + 0) * 3, EEPROM.read(type * 6 + 1) * 3, EEPROM.read(type * 6 + 2) * 3, EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4), EEPROM.read(type * 6 + 5));
+        Serial.print(EEPROM.read(type * 6 + 0) * 3);
+        Serial.print(";");
+        Serial.println(EEPROM.read(type * 6 + 4) * 3);
         if (digitalRead(START_PIN) == 0) {
           RUN = 1;
         }
         if (RUN == 1) {
           digitalWrite(DEN_DO_PIN, 1);
           digitalWrite(DEN_XANH_PIN, 0);
-          AutoProgram(EEPROM.read((type - 1) * 6 + 0) * 3, EEPROM.read((type - 1) * 6 + 1) * 3, EEPROM.read((type - 1) * 6 + 2) * 3, EEPROM.read((type - 1) * 6 + 3), EEPROM.read((type - 1) * 6 + 4));
+          AutoProgram(EEPROM.read(type * 6 + 0) * 3, EEPROM.read(type * 6 + 1) * 3, EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4));
         } else {
           digitalWrite(DEN_DO_PIN, 0);
           digitalWrite(DEN_XANH_PIN, 1);
@@ -377,6 +424,7 @@ void loop() {
                 type++;
                 if (type > 10) type = 1;
                 lcd.clear();
+                EEPROM.write(70, type);
               }
             }
             if (digitalRead(TRAI_PIN) == 1) {
@@ -385,12 +433,14 @@ void loop() {
                 type--;
                 if (type < 1) type = 10;
                 lcd.clear();
+                EEPROM.write(70, type);
               }
             }
             if (digitalRead(RESET_PIN) == 0) {
               SET = 3;
             }
-            ShowSelect(type, EEPROM.read(type * 6 + 0) * 3, EEPROM.read(type * 6 + 1) * 3, EEPROM.read(type * 6 + 2) * 3, EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4), EEPROM.read(type * 6 + 5));
+            type = EEPROM.read(70);
+            ShowSelect(type + 1, EEPROM.read(type * 6 + 0) * 3, EEPROM.read(type * 6 + 1) * 3, EEPROM.read(type * 6 + 2) * 3, EEPROM.read(type * 6 + 3), EEPROM.read(type * 6 + 4), EEPROM.read(type * 6 + 5));
             if (digitalRead(SET_PIN) == 0) {
               if (type == 1 || type == 2) {
                 for (int i = 0; i < 3; i++) {
@@ -398,7 +448,7 @@ void loop() {
                 }
               } else {
                 for (int i = 0; i < 7; i++) {
-                  data1[i] = EEPROM.read(type * 6 + i);
+                  data1[i] = EEPROM.read(type * 6 + i) * 3;
                 }
                 SET = 2;
                 break;
@@ -406,23 +456,23 @@ void loop() {
             }
           }
           while (SET == 2) {
-            ShowSelect(type, data1[0], data1[1], data1[2], data1[3], data1[4], data1[5]);
+            type = EEPROM.read(70);
+            ShowSelect(type + 1, data1[0], data1[1], data1[2], data1[3], data1[4], data1[5]);
             SELECT = int((float(analogRead(TG_PIN)) / 1023.0) * 5.0);
-
             switch (SELECT) {
               case 0:
-                if (unsigned(millis()) - time > 1000) {
+                if (unsigned(millis()) - time > 500) {
                   lcd.setCursor(4, 2);
                   lcd.print("    ");
                   time = millis();
-                }
-                if (unsigned(millis()) - time > 1000) {
+                } else {
                   lcd.setCursor(4, 2);
                   lcd.print(data1[0]);
-                  time = millis();
                 }
                 digitalWrite(ENB_X, 1);
                 if (digitalRead(TRAI_PIN) == 1) {
+                  home[0] = 0;
+                  EEPROM.write(100, home[0]);
                   digitalWrite(ENB_X, 0);
                   digitalWrite(DIR_X, 0);
                   while (digitalRead(TRAI_PIN) == 1) {
@@ -431,7 +481,7 @@ void loop() {
                   }
                 }
                 if (digitalRead(PHAI_PIN) == 0) {
-                  if (digitalRead(KHOP_X) == 1) {
+                  if (home[0] == 0) {
                     digitalWrite(ENB_X, 0);
                     digitalWrite(DIR_X, 1);
                     while (digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_X) == 1) {
@@ -440,6 +490,8 @@ void loop() {
                     }
                   } else {
                     data1[0] = 0;
+                    home[0] = 1;
+                    EEPROM.write(100, home[0]);
                     for (int i = 0; i < 3; i++) {
                       bao();
                     }
@@ -447,33 +499,42 @@ void loop() {
                 }
                 break;
               case 1:
-                if (unsigned(millis()) - time > 1000) {
+                if (unsigned(millis()) - time > 500) {
                   lcd.setCursor(10, 2);
                   lcd.print("    ");
                   time = millis();
-                }
-                if (unsigned(millis()) - time > 1000) {
+                } else {
                   lcd.setCursor(10, 2);
                   lcd.print(data1[1]);
-                  time = millis();
                 }
                 if (digitalRead(TRAI_PIN) == 1) {
-                  digitalWrite(ENB_Y, 0);
-                  digitalWrite(DIR_Y, 0);
-                  while (digitalRead(TRAI_PIN) == 1) {
-                    runy(1000);
-                    data1[1]++;
+                  if (data1[1] < 3000) {
+                    home[1] = 0;
+                    EEPROM.write(101, home[1]);
+                    digitalWrite(ENB_Y, 0);
+                    digitalWrite(DIR_Y, 1);
+                    while (digitalRead(TRAI_PIN) == 1) {
+                      runy(1000);
+                      data1[1]++;
+                    }
+                  } else {
+                    digitalWrite(ENB_Y, 1);
+                    for (int i = 0; i < 3; i++) {
+                      bao();
+                    }
                   }
                 }
                 if (digitalRead(PHAI_PIN) == 0) {
-                  if (digitalRead(KHOP_Y) == 1) {
+                  if (home[1] == 0) {
                     digitalWrite(ENB_Y, 0);
-                    digitalWrite(DIR_Y, 1);
+                    digitalWrite(DIR_Y, 0);
                     while (digitalRead(PHAI_PIN) == 0 & digitalRead(KHOP_Y) == 1) {
                       runy(1000);
                       data1[1]--;
                     }
                   } else {
+                    home[1] = 1;
+                    EEPROM.write(101, home[1]);
                     digitalWrite(ENB_Y, 1);
                     data1[1] = 0;
                     for (int i = 0; i < 3; i++) {
@@ -483,15 +544,13 @@ void loop() {
                 }
                 break;
               case 2:
-                if (unsigned(millis()) - time > 1000) {
+                if (unsigned(millis()) - time > 500) {
                   lcd.setCursor(16, 2);
                   lcd.print("    ");
                   time = millis();
-                }
-                if (unsigned(millis()) - time > 1000) {
+                } else {
                   lcd.setCursor(16, 2);
                   lcd.print(data1[2]);
-                  time = millis();
                 }
                 if (digitalRead(TRAI_PIN) == 1) {
                   digitalWrite(ENB_Z, 0);
@@ -520,15 +579,13 @@ void loop() {
                 }
                 break;
               case 3:
-                if (unsigned(millis()) - time > 1000) {
+                if (unsigned(millis()) - time > 500) {
                   lcd.setCursor(5, 3);
                   lcd.print("  ");
                   time = millis();
-                }
-                if (unsigned(millis()) - time > 1000) {
+                } else {
                   lcd.setCursor(5, 3);
                   lcd.print(data1[4]);
-                  time = millis();
                 }
                 if (digitalRead(PHAI_PIN) == 0) {
                   delay(20);
@@ -546,15 +603,13 @@ void loop() {
                 }
                 break;
               case 4:
-                if (unsigned(millis()) - time > 1000) {
+                if (unsigned(millis()) - time > 500) {
                   lcd.setCursor(9, 3);
                   lcd.print("   ");
                   time = millis();
-                }
-                if (unsigned(millis()) - time > 1000) {
+                } else {
                   lcd.setCursor(9, 3);
                   lcd.print(data1[3]);
-                  time = millis();
                 }
                 if (digitalRead(PHAI_PIN) == 0) {
                   delay(20);
@@ -572,15 +627,13 @@ void loop() {
                 }
                 break;
               case 5:
-                if (unsigned(millis()) - time > 1000) {
+                if (unsigned(millis()) - time > 500) {
                   lcd.setCursor(16, 3);
                   lcd.print("  ");
                   time = millis();
-                }
-                if (unsigned(millis()) - time > 1000) {
+                } else {
                   lcd.setCursor(16, 3);
                   lcd.print(data1[5]);
-                  time = millis();
                 }
                 if (digitalRead(PHAI_PIN) == 0) {
                   delay(20);
@@ -601,24 +654,27 @@ void loop() {
             if (digitalRead(SET_PIN) == 0) {
               delay(1000);
               if (digitalRead(SET_PIN) == 0) {
-                lcd.clear();
-                for (int i = 0; i < 6; i++) {
-                  data[type - 1][i] = data1[i];
-                  if (i < 3) {
-                    EEPROM.write(i + ((type - 1) * 6), data1[i] / 3);
-                    delay(5);
-                  } else {
-                    EEPROM.write(i + ((type - 1) * 6), data1[i]);
-                    delay(5);
-                  }
-                }
-                for (int i = 0; i < 2; i++) bao();
+                SET = 3;
                 break;
               }
             }
           }
-          //EEPROM.write(0, doc[0]);
-          //Serial.println(EEPROM.read(0));
+          while (SET == 3) {
+            lcd.clear();
+            type = EEPROM.read(70);
+            for (int i = 0; i < 6; i++) {
+              if (i < 3) {
+                EEPROM.write(i + (type * 6), data1[i] / 3);
+                delay(5);
+              } else {
+                EEPROM.write(i + (type * 6), data1[i]);
+                delay(5);
+              }
+            }
+            for (int i = 0; i < 2; i++) bao();
+            Reset(data1[0], data1[1]);
+            break;
+          }
         }
         if (digitalRead(PHAI_PIN) == 0) {
           delay(20);
@@ -626,6 +682,7 @@ void loop() {
             type++;
             if (type > 10) type = 1;
             lcd.clear();
+            EEPROM.write(70, type);
           }
         }
         if (digitalRead(TRAI_PIN) == 1) {
@@ -634,6 +691,7 @@ void loop() {
             type--;
             if (type < 1) type = 10;
             lcd.clear();
+            EEPROM.write(70, type);
           }
         }
         if (digitalRead(S2_PIN) == 0) {
@@ -643,10 +701,44 @@ void loop() {
       }
     }                                   // AUTO
     while (digitalRead(S1_PIN) == 1) {  //MAN
+      lcd.clear();                      //May da san sang hoat dong che do MAN
       ready = 0;
-      Reset();
-      lcd.clear();
-      while (ready == 1 && digitalRead(S1_PIN) == 1) {  //May da san sang hoat dong che do MAN
+      data1[6] = 0;
+      ready = 1;
+      while (ready == 1 && digitalRead(S1_PIN) == 1) {
+        if (digitalRead(TRAI_PIN) == 1) {
+          home[0] = 0;
+          EEPROM.write(100, home[0]);
+          if (data1[6] < 5000) {
+            digitalWrite(ENB_X, 0);
+            digitalWrite(DIR_X, 0);
+            while (digitalRead(TRAI_PIN) == 1) {
+              runx(600);
+              data1[6]++;
+            }
+          } else {
+            for (int i = 0; i < 3; i++) bao();
+          }
+        }
+        if (digitalRead(PHAI_PIN) == 0) {
+          if (home[0] == 0) {
+            digitalWrite(ENB_X, 0);
+            digitalWrite(DIR_X, 1);
+
+            while (digitalRead(PHAI_PIN) == 0) {
+              if (data1[6] <= 0) {
+                home[0] = 1;
+                EEPROM.write(100, home[0]);
+                break;
+              }
+              runx(600);
+              data1[0]--;
+            }
+          } else {
+            data1[6] = 0;
+            for (int i = 0; i < 3; i++) bao();
+          }
+        }
         ManProgram();
       }
     }
