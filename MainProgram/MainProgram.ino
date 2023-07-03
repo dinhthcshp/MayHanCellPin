@@ -451,10 +451,10 @@ void loop() {
       }
       lcd.clear();
       while (ready == 1 && digitalRead(S1_PIN) == 0) {
-        // while (Serial.available()) {
-        //   RUN = Serial.read();
-        //   delay(200);
-        // }
+        while (Serial.available()) {
+          RUN = Serial.read();
+          delay(200);
+        }
         TypePin = EEPROM.read(70);
         Show(TypePin + 1, EEPROM.read(TypePin * 7 + 0) * 3, EEPROM.read(TypePin * 7 + 1) * 3, EEPROM.read(TypePin * 7 + 2), EEPROM.read(TypePin * 7 + 3), EEPROM.read(TypePin * 7 + 4), EEPROM.read(TypePin * 7 + 5));
         Serial.print(EEPROM.read(TypePin * 7 + 0) * 3);
