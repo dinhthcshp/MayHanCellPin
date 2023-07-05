@@ -47,7 +47,7 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 unsigned long time;
 byte contro = 0;
 int TrucX = 0, TrucY = 0;
-int Pin[4] = { 157, 170, 620, 450 };
+int Pin[4] = { 157, 160, 620, 450 };
 
 void setup() {
   lcd.init();
@@ -99,6 +99,10 @@ void setup() {
 
   Serial.begin(9600);
   time = millis();
+  float x = 157.0 / 3.0;
+  EEPROM.write(0, 57);
+  EEPROM.write(1, 44);
+  EEPROM.write(3, 155);
 }
 void Bao(int solan, int thoigian) {
   for (int i = 0; i < solan; i++) {
@@ -115,7 +119,7 @@ void X_Trai(unsigned int xung, unsigned int tocdo) {
     digitalWrite(STEP_X, 0);
     delayMicroseconds(tocdo);
     digitalWrite(STEP_X, 1);
-    delayMicroseconds(tocdo);
+    delayMicroseconds(600);
   }
   digitalWrite(ENB_X, 1);
 }
@@ -126,7 +130,7 @@ void X_Phai(unsigned int xung, unsigned int tocdo) {
     digitalWrite(STEP_X, 0);
     delayMicroseconds(tocdo);
     digitalWrite(STEP_X, 1);
-    delayMicroseconds(tocdo);
+    delayMicroseconds(600);
   }
   digitalWrite(ENB_X, 1);
 }
@@ -137,7 +141,7 @@ void Y_Vao(unsigned int xung, unsigned int tocdo) {
     digitalWrite(STEP_Y, 0);
     delayMicroseconds(tocdo);
     digitalWrite(STEP_Y, 1);
-    delayMicroseconds(tocdo);
+    delayMicroseconds(600);
   }
   digitalWrite(ENB_Y, 1);
 }
@@ -148,11 +152,11 @@ void Y_Ra(unsigned int xung, unsigned int tocdo) {
     digitalWrite(STEP_Y, 0);
     delayMicroseconds(tocdo);
     digitalWrite(STEP_Y, 1);
-    delayMicroseconds(tocdo);
+    delayMicroseconds(600);
   }
   digitalWrite(ENB_Y, 1);
 }
-void AutoProgram(int p0X, int p0Y, int distanceX, int distanceY, int CellX, int CellY) {
+void AutoProgram(int p0X, int p0Y, int distanceX, int distanceY, int CellX, int CellY, int thoigian) {
   unsigned int buoc = 0;
   while (buoc == 0) {
     X_Trai(p0X, 600);
@@ -164,7 +168,7 @@ void AutoProgram(int p0X, int p0Y, int distanceX, int distanceY, int CellX, int 
     EEPROM.write(101, 0);
     for (int i = 0; i < CellX; i++) {
       for (int j = 0; j < CellY; j++) {
-        Z(0);
+        Z(thoigian);
         if (j < CellY - 1) {
           if (i % 2 == 0) {
             Y_Vao(distanceY, 600);
@@ -180,7 +184,7 @@ void AutoProgram(int p0X, int p0Y, int distanceX, int distanceY, int CellX, int 
   while (buoc == 2) {
     X_Phai(distanceX * (CellX - 1) + p0X, 600);
     if (CellX % 2 == 1) {
-      Y_Ra(distanceY * CellY - 1 + p0Y, 600);
+      Y_Ra(distanceY * (CellY - 1) + p0Y, 600);
     } else Y_Ra(p0Y, 600);
     EEPROM.write(100, 1);
     EEPROM.write(101, 1);
@@ -219,7 +223,7 @@ void Z_Xuong(int tg) {
     digitalWrite(STEP_Z, 0);
     delayMicroseconds(tg);
     digitalWrite(STEP_Z, 1);
-    delayMicroseconds(tg);
+    delayMicroseconds(600);
   } else Bao(2, 80);
 }
 void Z_Len(int tg) {
@@ -228,7 +232,7 @@ void Z_Len(int tg) {
     digitalWrite(STEP_Z, 0);
     delayMicroseconds(tg);
     digitalWrite(STEP_Z, 1);
-    delayMicroseconds(tg);
+    delayMicroseconds(600);
   } else Bao(2, 80);
 }
 void Home() {
@@ -287,21 +291,21 @@ void Home() {
     buoc++;
   }
 }
-void HienThiAuto(int loaipin, int cellX, int cellY, int k, int t) {
+void HienThiAuto(int loaipin, int cellX, int cellY, int k, int t, int cs) {
   lcd.setCursor(2, 0);
   lcd.print("MAY HAN CELL PIN");
-  lcd.setCursor(1, 1);
+  lcd.setCursor(0, 1);
   lcd.print("Che do: ");
-  lcd.setCursor(9, 1);
+  lcd.setCursor(8, 1);
   lcd.printstr("AUTO");
-  lcd.setCursor(1, 2);
-  lcd.print("Loai pin: ");
-  lcd.setCursor(11, 2);
+  lcd.setCursor(0, 2);
+  lcd.print("Loai pin:    ");
+  lcd.setCursor(10, 2);
   lcd.print(loaipin);
 
-  lcd.setCursor(1, 3);
+  lcd.setCursor(0, 3);
   lcd.print("So cell:");
-  lcd.setCursor(9, 3);
+  lcd.setCursor(8, 3);
   lcd.print(cellX);
   lcd.setCursor(10, 3);
   lcd.print("x");
@@ -319,6 +323,13 @@ void HienThiAuto(int loaipin, int cellX, int cellY, int k, int t) {
   lcd.print(t);
   lcd.setCursor(18, 3);
   lcd.print("ms");
+
+  lcd.setCursor(14, 1);
+  lcd.print("W:   ");
+  lcd.setCursor(16, 1);
+  lcd.print(cs);
+  lcd.setCursor(19, 1);
+  lcd.print("%");
 }
 void HienThiCaiDat() {
   lcd.setCursor(4, 0);
@@ -369,35 +380,72 @@ void HienThiMenuVitri2(int x1, int y1, int x2, int y2, int x3, int y3, int loai)
   lcd.setCursor(1, 1);
   lcd.print("P1-");
   lcd.setCursor(4, 1);
-  lcd.printstr("X:    ");
+  lcd.printstr("X:     ");
   lcd.setCursor(6, 1);
   lcd.print(x1);
   lcd.setCursor(11, 1);
-  lcd.printstr("Y:    ");
+  lcd.printstr("Y:     ");
   lcd.setCursor(13, 1);
   lcd.print(y1);
 
   lcd.setCursor(1, 2);
   lcd.print("P2-");
   lcd.setCursor(4, 2);
-  lcd.printstr("X:    ");
+  lcd.printstr("X:     ");
   lcd.setCursor(6, 2);
   lcd.print(x2);
   lcd.setCursor(11, 2);
-  lcd.printstr("Y:    ");
+  lcd.printstr("Y:     ");
   lcd.setCursor(13, 2);
   lcd.print(y2);
 
   lcd.setCursor(1, 3);
   lcd.print("P3-");
   lcd.setCursor(4, 3);
-  lcd.printstr("X:    ");
+  lcd.printstr("X:     ");
   lcd.setCursor(6, 3);
   lcd.print(x3);
   lcd.setCursor(11, 3);
-  lcd.printstr("Y:    ");
+  lcd.printstr("Y:     ");
   lcd.setCursor(13, 3);
   lcd.print(y3);
+
+  lcd.setCursor(18, 3);
+  lcd.print("Z");
+}
+void HienThiMenuCell(int CellX, int CellY, int tg, int k) {
+  lcd.setCursor(2, 0);
+  lcd.print("Cai dat Cell,T,K");
+
+  lcd.setCursor(1, 1);
+  lcd.print("Cell:  ");
+  lcd.setCursor(6, 1);
+  lcd.print(CellX);
+  lcd.setCursor(8, 1);
+  lcd.print("x    ");
+  lcd.setCursor(9, 1);
+  lcd.print(CellY);
+
+  lcd.setCursor(3, 2);
+  lcd.print("X:  ");
+  lcd.setCursor(5, 2);
+  lcd.print(CellX);
+  lcd.setCursor(7, 2);
+  lcd.print("Y:  ");
+  lcd.setCursor(9, 2);
+  lcd.print(CellY);
+
+  lcd.setCursor(1, 3);
+  lcd.print("T:  ");
+  lcd.setCursor(3, 3);
+  lcd.print(tg);
+  lcd.setCursor(5, 3);
+  lcd.print("ms");
+
+  lcd.setCursor(10, 3);
+  lcd.print("K:");
+  lcd.setCursor(12, 3);
+  lcd.print(k);
 }
 void DKConTro(byte giatri) {
   if (digitalRead(START_PIN) == 0) {
@@ -411,17 +459,42 @@ void DKConTro(byte giatri) {
 void loop() {
   while (1) {
     Home();
+
     while (digitalRead(S1_PIN) == 0) {
       byte Ready = 0;
+      byte Type = EEPROM.read(40);
       Ready = 1;
       lcd.clear();
       while (Ready == 1 && digitalRead(S1_PIN) == 0) {
         if (EEPROM.read(50) == 0) {  //AUTO
-          HienThiAuto(EEPROM.read(40) + 1, EEPROM.read(41), EEPROM.read(42), EEPROM.read(43), EEPROM.read(44));
+          int cs = int((float(analogRead(CS_PIN)) / 102.3)) * 10;
+          HienThiAuto(EEPROM.read(40) + 1, EEPROM.read(41), EEPROM.read(42), EEPROM.read(43), EEPROM.read(44), cs);
+          if (digitalRead(TRAI_PIN) == 1) {
+            delay(100);
+            if (digitalRead(TRAI_PIN) == 1) {
+              if (Type > 0) {
+                Type--;
+              } else Type = 0;
+              EEPROM.write(40, Type);
+            }
+          }
+          if (digitalRead(PHAI_PIN) == 0) {
+            delay(100);
+            if (digitalRead(PHAI_PIN) == 0) {
+              if (Type < 9) {
+                Type++;
+              } else Type = 9;
+              EEPROM.write(40, Type);
+            }
+          }          
           if (digitalRead(START_PIN) == 0) {
             delay(20);
             if (digitalRead(START_PIN) == 0) {
-              AutoProgram(int(EEPROM.read(EEPROM.read(40) * 2 + 0) * 3.0), int(EEPROM.read(EEPROM.read(40) * 2 + 1) * 3.0), int(EEPROM.read(EEPROM.read(40) * 2 + 2) * 3.0), int(EEPROM.read(EEPROM.read(40) * 2 + 3) * 3.0), EEPROM.read(41), EEPROM.read(42));
+              Serial.println(EEPROM.read(0));
+              Serial.println(EEPROM.read(1));
+              Serial.println(EEPROM.read(2));
+              Serial.println(EEPROM.read(3));
+              AutoProgram(int(EEPROM.read(EEPROM.read(40) * 4 + 0) * 3.0), int(EEPROM.read(EEPROM.read(40) * 4 + 1) * 3.0), int(EEPROM.read(EEPROM.read(40) * 4 + 2) * 3.0), int(EEPROM.read(EEPROM.read(40) * 4 + 3) * 3.0), EEPROM.read(41), EEPROM.read(42), EEPROM.read(44));
             }
           }
         } else {
@@ -469,6 +542,7 @@ void loop() {
       byte menu = 0;
       int x1, x2, x3, y1, y2, y3;
       x1 = x2 = x3 = y1 = y2 = y3 = 0;
+      int CellX = 0, CellY = 0, tg = 0, k = 0;
       lcd.clear();
       HienThiCaiDat();
       menu = 1;
@@ -579,59 +653,49 @@ void loop() {
           HienThiMenuVitri2(x1, y1, x2, y2, x3, y3, EEPROM.read(40) + 1);
           DKConTro(4);
           if (digitalRead(TRAI_PIN) == 1 && digitalRead(S2_PIN) == 0 && contro != 3) {
-            delay(20);
-            EEPROM.write(100, 0);
-            while (digitalRead(TRAI_PIN) == 1) {
-              if (TrucX < 3000) {
-                X_Trai(1, 800);
+            if (TrucX < 3000) {
+              EEPROM.write(100, 0);
+              while (digitalRead(TRAI_PIN) == 1) {
+                X_Trai(1, 2000);
                 TrucX++;
-              } else Bao(2, 80);
-            }
+              }
+            } else Bao(2, 80);
           }
           if (digitalRead(PHAI_PIN) == 0 && digitalRead(S2_PIN) == 0 && contro != 3) {
-            delay(20);
-            while (digitalRead(PHAI_PIN) == 0) {
-              if (TrucX > 0) {
-                X_Phai(1, 800);
+            if (TrucX > 0) {
+              while (digitalRead(PHAI_PIN) == 0) {
+                X_Phai(1, 2000);
                 TrucX--;
-              } else {
-                Bao(2, 80);
               }
-            }
+            } else Bao(2, 80);
           }
+
           if (digitalRead(TRAI_PIN) == 1 && digitalRead(S2_PIN) == 1 && contro != 3) {
-            delay(20);
-            EEPROM.write(101, 0);
-            while (digitalRead(TRAI_PIN) == 1) {
-              if (TrucY < 2300) {
-                Y_Vao(1, 600);
+            if (TrucY < 2300) {
+              EEPROM.write(101, 0);
+              while (digitalRead(TRAI_PIN) == 1) {
+                Y_Vao(1, 2000);
                 TrucY++;
-              } else Bao(2, 80);
-            }
+              }
+            } else Bao(2, 80);
           }
           if (digitalRead(PHAI_PIN) == 0 && digitalRead(S2_PIN) == 1 && contro != 3) {
-            delay(20);
-            while (digitalRead(PHAI_PIN) == 0) {
-              if (TrucY > 0) {
-                Y_Ra(1, 600);
+            if (TrucY > 0) {
+              while (digitalRead(PHAI_PIN) == 0) {
+                Y_Ra(1, 2000);
                 TrucY--;
-              } else {
-                Bao(2, 80);
               }
-            }
+            } else Bao(2, 80);
           }
-          if (digitalRead(TRAI_PIN) == 1 && contro == 3) {
-            delay(20);
-            EEPROM.write(102, 0);
-            while (digitalRead(TRAI_PIN) == 1) {
-              Z_Xuong(800);
+
+          while (digitalRead(TRAI_PIN) == 1 && contro == 3) {
+            if (EEPROM.read(102) == 1) {
+              EEPROM.write(102, 0);
             }
+            Z_Xuong(2000);
           }
-          if (digitalRead(PHAI_PIN) == 0 && contro == 3) {
-            delay(20);
-            while (digitalRead(PHAI_PIN) == 0) {
-              Z_Len(800);
-            }
+          while (digitalRead(PHAI_PIN) == 0 && contro == 3) {
+            Z_Len(2000);
           }
           switch (contro) {
             case 0:
@@ -685,8 +749,8 @@ void loop() {
               lcd.print(">");
               lcd.setCursor(17, 3);
               lcd.print(" ");
-              x2 = TrucX;
-              y2 = TrucY;
+              x3 = TrucX;
+              y3 = TrucY;
               break;
             case 3:
               lcd.setCursor(0, 1);
@@ -701,10 +765,10 @@ void loop() {
           if (digitalRead(SET_PIN) == 0) {
             delay(100);
             if (digitalRead(SET_PIN) == 0) {
-              EEPROM.write(EEPROM.read(40) * 2 + 0, float(x1) / 3.0);
-              EEPROM.write(EEPROM.read(40) * 2 + 1, float(y1) / 3.0);
-              EEPROM.write(EEPROM.read(40) * 2 + 2, float(x2 - x1) / 3.0);
-              EEPROM.write(EEPROM.read(40) * 2 + 3, float(y2 - y1) / 3.0);
+              EEPROM.write(EEPROM.read(40) * 4 + 0, float(x1) / 3.0);
+              EEPROM.write(EEPROM.read(40) * 4 + 1, float(y1) / 3.0);
+              EEPROM.write(EEPROM.read(40) * 4 + 2, float(x2 - x1) / 3.0);
+              EEPROM.write(EEPROM.read(40) * 4 + 3, float(y3 - y2) / 3.0);
               contro = 0;
               menu = 1;
               break;
@@ -713,6 +777,118 @@ void loop() {
         }
       }
       while (menu == 4) {
+        HienThiMenuCell(CellX, CellY, tg, k + 1);
+        DKConTro(4);
+        switch (contro) {
+          case 0:
+            lcd.setCursor(2, 2);
+            lcd.print(">");
+            lcd.setCursor(6, 2);
+            lcd.print(" ");
+            lcd.setCursor(0, 3);
+            lcd.print(" ");
+            lcd.setCursor(9, 3);
+            lcd.print(" ");
+            if (digitalRead(PHAI_PIN) == 0) {
+              delay(20);
+              if (digitalRead(PHAI_PIN) == 0) {
+                if (CellX < 11) CellX++;
+                else CellX = 1;
+              }
+            }
+            if (digitalRead(TRAI_PIN) == 1) {
+              delay(20);
+              if (digitalRead(TRAI_PIN) == 1) {
+                if (CellX > 0) CellX--;
+                else CellX = 10;
+              }
+            }
+            break;
+          case 1:
+            lcd.setCursor(2, 2);
+            lcd.print(" ");
+            lcd.setCursor(6, 2);
+            lcd.print(">");
+            lcd.setCursor(0, 3);
+            lcd.print(" ");
+            lcd.setCursor(9, 3);
+            lcd.print(" ");
+            if (digitalRead(PHAI_PIN) == 0) {
+              delay(20);
+              if (digitalRead(PHAI_PIN) == 0) {
+                if (CellY < 11) CellY++;
+                else CellY = 1;
+              }
+            }
+            if (digitalRead(TRAI_PIN) == 1) {
+              delay(20);
+              if (digitalRead(TRAI_PIN) == 1) {
+                if (CellY > 0) CellY--;
+                else CellY = 10;
+              }
+            }
+            break;
+          case 2:
+            lcd.setCursor(2, 2);
+            lcd.print(" ");
+            lcd.setCursor(6, 2);
+            lcd.print(" ");
+            lcd.setCursor(0, 3);
+            lcd.print(">");
+            lcd.setCursor(9, 3);
+            lcd.print(" ");
+            HienThiMenuCell(CellX, CellY, tg, k + 1);
+            if (digitalRead(PHAI_PIN) == 0) {
+              delay(20);
+              if (digitalRead(PHAI_PIN) == 0) {
+                if (tg < 51) tg = tg + 5;
+                else tg = 50;
+              }
+            }
+            if (digitalRead(TRAI_PIN) == 1) {
+              delay(20);
+              if (digitalRead(TRAI_PIN) == 1) {
+                if (tg > 0) tg = tg - 5;
+                else tg = 10;
+              }
+            }
+            break;
+          case 3:
+            lcd.setCursor(2, 2);
+            lcd.print(" ");
+            lcd.setCursor(6, 2);
+            lcd.print(" ");
+            lcd.setCursor(0, 3);
+            lcd.print(" ");
+            lcd.setCursor(9, 3);
+            lcd.print(">");
+            HienThiMenuCell(CellX, CellY, tg, k + 1);
+            if (digitalRead(PHAI_PIN) == 0) {
+              delay(20);
+              if (digitalRead(PHAI_PIN) == 0) {
+                if (k < 3) k++;
+                else k = 2;
+              }
+            }
+            if (digitalRead(TRAI_PIN) == 1) {
+              delay(20);
+              if (digitalRead(TRAI_PIN) == 1) {
+                if (k > 0) k--;
+                else k = 0;
+              }
+            }
+            break;
+        }
+        if (digitalRead(SET_PIN) == 0) {
+          delay(100);
+          if (digitalRead(SET_PIN) == 0) {
+            EEPROM.write(41, CellX);
+            EEPROM.write(42, CellY);
+            EEPROM.write(43, k + 1);
+            EEPROM.write(44, tg);
+            menu = 1;
+          }
+        }
       }
     }
   }
