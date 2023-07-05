@@ -1,8 +1,10 @@
 #include <EEPROM.h>
 #include <stdio.h>
-#include <Wire.h>;
-#include <LiquidCrystal_I2C.h>;
+#include <ACS712.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 LiquidCrystal_I2C lcd(0x27, 20, 4);
+ACS712 sensor(ACS712_30A, A3);
 ///////////////////////TP6600
 #define STEP_X 43
 #define DIR_X 45
@@ -47,9 +49,13 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 unsigned long time;
 byte contro = 0;
 int TrucX = 0, TrucY = 0;
+int TrucX1 = 0, TrucY1 = 0;
 int Pin[4] = { 157, 160, 620, 450 };
+float I = 0.0;
 
 void setup() {
+  int Zero = sensor.calibrate();
+  delay(200);
   lcd.init();
   lcd.backlight();
   lcd.setCursor(2, 0);
@@ -99,10 +105,10 @@ void setup() {
 
   Serial.begin(9600);
   time = millis();
-  float x = 157.0 / 3.0;
   EEPROM.write(0, 57);
   EEPROM.write(1, 44);
   EEPROM.write(3, 155);
+  EEPROM.write(45, 50);
 }
 void Bao(int solan, int thoigian) {
   for (int i = 0; i < solan; i++) {
@@ -120,6 +126,7 @@ void X_Trai(unsigned int xung, unsigned int tocdo) {
     delayMicroseconds(tocdo);
     digitalWrite(STEP_X, 1);
     delayMicroseconds(600);
+    TrucX1++;
   }
   digitalWrite(ENB_X, 1);
 }
@@ -131,6 +138,7 @@ void X_Phai(unsigned int xung, unsigned int tocdo) {
     delayMicroseconds(tocdo);
     digitalWrite(STEP_X, 1);
     delayMicroseconds(600);
+    TrucX1--;
   }
   digitalWrite(ENB_X, 1);
 }
@@ -142,6 +150,7 @@ void Y_Vao(unsigned int xung, unsigned int tocdo) {
     delayMicroseconds(tocdo);
     digitalWrite(STEP_Y, 1);
     delayMicroseconds(600);
+    TrucY1++;
   }
   digitalWrite(ENB_Y, 1);
 }
@@ -153,11 +162,13 @@ void Y_Ra(unsigned int xung, unsigned int tocdo) {
     delayMicroseconds(tocdo);
     digitalWrite(STEP_Y, 1);
     delayMicroseconds(600);
+    TrucY1--;
   }
   digitalWrite(ENB_Y, 1);
 }
-void AutoProgram(int p0X, int p0Y, int distanceX, int distanceY, int CellX, int CellY, int thoigian) {
+void AutoProgram(int p0X, int p0Y, int distanceX, int distanceY, int CellX, int CellY, int thoigian, int distanceK) {
   unsigned int buoc = 0;
+  TrucX = TrucY = 0;
   while (buoc == 0) {
     X_Trai(p0X, 600);
     Y_Vao(p0Y, 600);
@@ -168,11 +179,50 @@ void AutoProgram(int p0X, int p0Y, int distanceX, int distanceY, int CellX, int 
     EEPROM.write(101, 0);
     for (int i = 0; i < CellX; i++) {
       for (int j = 0; j < CellY; j++) {
-        Z(thoigian);
-        if (j < CellY - 1) {
+        if (EEPROM.read(43) == 0) {
+          Z(thoigian);
+          if (j < CellY - 1) {
+            if (i % 2 == 0) {
+              Y_Vao(distanceY, 600);
+            } else Y_Ra(distanceY, 600);
+          }
+        }
+        if (EEPROM.read(43) == 1) {
           if (i % 2 == 0) {
-            Y_Vao(distanceY, 600);
-          } else Y_Ra(distanceY, 600);
+            Z(thoigian);
+            Y_Vao(distanceK, 600);
+            Z(thoigian);
+          } else {
+            Z(thoigian);
+            Y_Ra(distanceK, 600);
+            Z(thoigian);
+          }
+
+          if (j < CellY - 1) {
+            if (i % 2 == 0) {
+              Y_Vao(distanceY - distanceK, 600);
+            } else Y_Ra(distanceY - distanceK, 600);
+          }
+        }
+        if (EEPROM.read(43) == 2) {
+          if (i % 2 == 0) {
+            Z(thoigian);
+            Y_Ra(distanceK, 600);
+            Z(thoigian);
+            Y_Vao(distanceK * 2, 600);
+            Z(thoigian);
+          } else {
+            Z(thoigian);
+            Y_Ra(distanceK, 600);
+            Z(thoigian);
+            Y_Ra(distanceK, 600);
+            Z(thoigian);
+          }
+          if (j < CellY - 1) {
+            if (i % 2 == 0) {
+              Y_Vao(distanceY - distanceK, 600);
+            } else Y_Ra(distanceY - distanceK, 600);
+          }
         }
       }
       if (i < CellX - 1) {
@@ -183,9 +233,12 @@ void AutoProgram(int p0X, int p0Y, int distanceX, int distanceY, int CellX, int 
   }
   while (buoc == 2) {
     X_Phai(distanceX * (CellX - 1) + p0X, 600);
-    if (CellX % 2 == 1) {
-      Y_Ra(distanceY * (CellY - 1) + p0Y, 600);
-    } else Y_Ra(p0Y, 600);
+    while (TrucY1 > 0) {
+      Y_Ra(1, 600);
+    }
+    // if (CellX % 2 == 1) {
+    //   Y_Ra(distanceY * (CellY - 1) + p0Y, 600);
+    // } else Y_Ra(p0Y, 600);
     EEPROM.write(100, 1);
     EEPROM.write(101, 1);
     Bao(3, 80);
@@ -204,8 +257,13 @@ void Z(int tg) {
   }
   while (z == 2) {
     digitalWrite(HAN_PIN, 1);
+    I = sensor.getCurrentAC();
     delay(tg);
     digitalWrite(HAN_PIN, 0);
+    Serial.print("I = ");
+    Serial.print(I);
+    Serial.print("A");
+    Serial.println("   ");
     z = 3;
   }
   while (z == 3) {
@@ -459,7 +517,6 @@ void DKConTro(byte giatri) {
 void loop() {
   while (1) {
     Home();
-
     while (digitalRead(S1_PIN) == 0) {
       byte Ready = 0;
       byte Type = EEPROM.read(40);
@@ -468,7 +525,7 @@ void loop() {
       while (Ready == 1 && digitalRead(S1_PIN) == 0) {
         if (EEPROM.read(50) == 0) {  //AUTO
           int cs = int((float(analogRead(CS_PIN)) / 102.3)) * 10;
-          HienThiAuto(EEPROM.read(40) + 1, EEPROM.read(41), EEPROM.read(42), EEPROM.read(43), EEPROM.read(44), cs);
+          HienThiAuto(EEPROM.read(40) + 1, EEPROM.read(41), EEPROM.read(42), EEPROM.read(43) + 1, EEPROM.read(44), cs);
           if (digitalRead(TRAI_PIN) == 1) {
             delay(100);
             if (digitalRead(TRAI_PIN) == 1) {
@@ -486,7 +543,16 @@ void loop() {
               } else Type = 9;
               EEPROM.write(40, Type);
             }
-          }          
+          }
+          if (digitalRead(RESET_PIN) == 0) {
+            delay(20);
+            if (digitalRead(RESET_PIN) == 0) {
+              EEPROM.write(102, 0);
+              EEPROM.write(100, 0);
+              EEPROM.write(101, 0);
+              Home();
+            }
+          }
           if (digitalRead(START_PIN) == 0) {
             delay(20);
             if (digitalRead(START_PIN) == 0) {
@@ -494,10 +560,10 @@ void loop() {
               Serial.println(EEPROM.read(1));
               Serial.println(EEPROM.read(2));
               Serial.println(EEPROM.read(3));
-              AutoProgram(int(EEPROM.read(EEPROM.read(40) * 4 + 0) * 3.0), int(EEPROM.read(EEPROM.read(40) * 4 + 1) * 3.0), int(EEPROM.read(EEPROM.read(40) * 4 + 2) * 3.0), int(EEPROM.read(EEPROM.read(40) * 4 + 3) * 3.0), EEPROM.read(41), EEPROM.read(42), EEPROM.read(44));
+              AutoProgram(int(EEPROM.read(EEPROM.read(40) * 4 + 0) * 3.0), int(EEPROM.read(EEPROM.read(40) * 4 + 1) * 3.0), int(EEPROM.read(EEPROM.read(40) * 4 + 2) * 3.0), int(EEPROM.read(EEPROM.read(40) * 4 + 3) * 3.0), EEPROM.read(41), EEPROM.read(42), EEPROM.read(44), EEPROM.read(45));
             }
           }
-        } else {
+        } else {  //Man
           int tg = int(float(analogRead(TG_PIN)) / 1023.0 * 40.0 + 10);
           int cs = int((float(analogRead(CS_PIN)) / 102.3)) * 10;
           HienThiMan(tg, cs);
@@ -543,6 +609,10 @@ void loop() {
       int x1, x2, x3, y1, y2, y3;
       x1 = x2 = x3 = y1 = y2 = y3 = 0;
       int CellX = 0, CellY = 0, tg = 0, k = 0;
+      CellX = EEPROM.read(41);
+      CellY = EEPROM.read(42);
+      k = EEPROM.read(43);
+      tg = EEPROM.read(44);
       lcd.clear();
       HienThiCaiDat();
       menu = 1;
@@ -777,6 +847,7 @@ void loop() {
         }
       }
       while (menu == 4) {
+
         HienThiMenuCell(CellX, CellY, tg, k + 1);
         DKConTro(4);
         switch (contro) {
@@ -866,7 +937,7 @@ void loop() {
             if (digitalRead(PHAI_PIN) == 0) {
               delay(20);
               if (digitalRead(PHAI_PIN) == 0) {
-                if (k < 3) k++;
+                if (k < 2) k++;
                 else k = 2;
               }
             }
@@ -884,7 +955,7 @@ void loop() {
           if (digitalRead(SET_PIN) == 0) {
             EEPROM.write(41, CellX);
             EEPROM.write(42, CellY);
-            EEPROM.write(43, k + 1);
+            EEPROM.write(43, k);
             EEPROM.write(44, tg);
             menu = 1;
           }
