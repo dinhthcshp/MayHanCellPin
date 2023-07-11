@@ -49,7 +49,6 @@ ACS712 sensor(ACS712_30A, A3);
 unsigned long time;
 byte contro = 0;
 int TrucX = 0, TrucY = 0;
-int TrucX1 = 0, TrucY1 = 0;
 int Pin[4] = { 157, 160, 620, 450 };
 float I = 0.0;
 
@@ -105,10 +104,11 @@ void setup() {
 
   Serial.begin(9600);
   time = millis();
-  EEPROM.write(0, 57);
-  EEPROM.write(1, 44);
+  //EEPROM.write(0, 63);
+  EEPROM.write(0, 88);
+  EEPROM.write(1, 60);
   EEPROM.write(3, 155);
-  EEPROM.write(45, 50);
+  EEPROM.write(45, 40);
 }
 void Bao(int solan, int thoigian) {
   for (int i = 0; i < solan; i++) {
@@ -126,7 +126,6 @@ void X_Trai(unsigned int xung, unsigned int tocdo) {
     delayMicroseconds(tocdo);
     digitalWrite(STEP_X, 1);
     delayMicroseconds(600);
-    TrucX1++;
   }
   digitalWrite(ENB_X, 1);
 }
@@ -138,7 +137,6 @@ void X_Phai(unsigned int xung, unsigned int tocdo) {
     delayMicroseconds(tocdo);
     digitalWrite(STEP_X, 1);
     delayMicroseconds(600);
-    TrucX1--;
   }
   digitalWrite(ENB_X, 1);
 }
@@ -150,7 +148,6 @@ void Y_Vao(unsigned int xung, unsigned int tocdo) {
     delayMicroseconds(tocdo);
     digitalWrite(STEP_Y, 1);
     delayMicroseconds(600);
-    TrucY1++;
   }
   digitalWrite(ENB_Y, 1);
 }
@@ -162,13 +159,13 @@ void Y_Ra(unsigned int xung, unsigned int tocdo) {
     delayMicroseconds(tocdo);
     digitalWrite(STEP_Y, 1);
     delayMicroseconds(600);
-    TrucY1--;
   }
   digitalWrite(ENB_Y, 1);
 }
 void AutoProgram(int p0X, int p0Y, int distanceX, int distanceY, int CellX, int CellY, int thoigian, int distanceK) {
   unsigned int buoc = 0;
-  TrucX = TrucY = 0;
+  digitalWrite(DEN_XANH_PIN, 0);
+  digitalWrite(DEN_DO_PIN, 1);
   while (buoc == 0) {
     X_Trai(p0X, 600);
     Y_Vao(p0Y, 600);
@@ -233,15 +230,14 @@ void AutoProgram(int p0X, int p0Y, int distanceX, int distanceY, int CellX, int 
   }
   while (buoc == 2) {
     X_Phai(distanceX * (CellX - 1) + p0X, 600);
-    while (TrucY1 > 0) {
-      Y_Ra(1, 600);
-    }
-    // if (CellX % 2 == 1) {
-    //   Y_Ra(distanceY * (CellY - 1) + p0Y, 600);
-    // } else Y_Ra(p0Y, 600);
+    if (CellX % 2 == 1) {
+      Y_Ra(distanceY * (CellY - 1) + p0Y, 600);
+    } else Y_Ra(p0Y, 600);
     EEPROM.write(100, 1);
     EEPROM.write(101, 1);
     Bao(3, 80);
+    digitalWrite(DEN_XANH_PIN, 1);
+    digitalWrite(DEN_DO_PIN, 0);
     buoc++;
   }
 }
@@ -257,8 +253,8 @@ void Z(int tg) {
   }
   while (z == 2) {
     digitalWrite(HAN_PIN, 1);
-    I = sensor.getCurrentAC();
     delay(tg);
+    I = sensor.getCurrentAC();
     digitalWrite(HAN_PIN, 0);
     Serial.print("I = ");
     Serial.print(I);
@@ -319,7 +315,7 @@ void Home() {
         }
       }
       while (ResetX == 1) {
-        X_Trai(80, 600);
+        X_Trai(1, 600);
         EEPROM.write(100, 1);
         ResetX++;
         buoc++;
@@ -336,7 +332,7 @@ void Home() {
         if (digitalRead(KHOP_Y) == 0) ResetY++;
       }
       while (ResetY == 1) {
-        Y_Ra(1650, 600);
+        Y_Ra(2500, 600);
         EEPROM.write(101, 1);
         ResetY++;
         buoc++;
@@ -568,6 +564,41 @@ void loop() {
           int cs = int((float(analogRead(CS_PIN)) / 102.3)) * 10;
           HienThiMan(tg, cs);
           int buocman = 0;
+          if (digitalRead(TRAI_PIN) == 1 && digitalRead(S2_PIN) == 0 && contro != 3) {
+            if (TrucX < 3000) {
+              EEPROM.write(100, 0);
+              while (digitalRead(TRAI_PIN) == 1) {
+                X_Trai(1, 2000);
+                TrucX++;
+              }
+            } else Bao(2, 80);
+          }
+          if (digitalRead(PHAI_PIN) == 0 && digitalRead(S2_PIN) == 0 && contro != 3) {
+            if (TrucX > 0) {
+              while (digitalRead(PHAI_PIN) == 0) {
+                X_Phai(1, 2000);
+                TrucX--;
+              }
+            } else Bao(2, 80);
+          }
+
+          if (digitalRead(TRAI_PIN) == 1 && digitalRead(S2_PIN) == 1 && contro != 3) {
+            if (TrucY < 2300) {
+              EEPROM.write(101, 0);
+              while (digitalRead(TRAI_PIN) == 1) {
+                Y_Vao(1, 2000);
+                TrucY++;
+              }
+            } else Bao(2, 80);
+          }
+          if (digitalRead(PHAI_PIN) == 0 && digitalRead(S2_PIN) == 1 && contro != 3) {
+            if (TrucY > 0) {
+              while (digitalRead(PHAI_PIN) == 0) {
+                Y_Ra(1, 2000);
+                TrucY--;
+              }
+            } else Bao(2, 80);
+          }
           digitalWrite(DIR_Z, 0);
           if (digitalRead(START_PIN) == 0 && buocman == 0) {
             delay(20);
